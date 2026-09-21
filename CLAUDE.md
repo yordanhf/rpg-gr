@@ -130,10 +130,16 @@ hitChance  = offenseAcc / (offenseAcc + defenseAcc)          // 0.5 si offense =
 critChance = 0.5% + weapon.CritChanceBonus
 
 // Daño no-crítico: SIEMPRE 1-30, con variación aleatoria ±20% (rule 6.3)
+// OJO: NO es un ratio puro ofensa/defensa (eso hacía que dos personajes igual de
+// débiles se dieran golpes de Massacre igual que dos personajes igual de fuertes).
+// La ofensa absoluta del atacante primero pone el techo; la defensa del rival
+// solo mitiga una fracción de ese techo, sobre la misma escala de referencia.
 offenseDmg = Strength + Attack + weapon.Damage               (atacante)
 defenseDmg = Constitution + Defense + armor.TotalAbsorb      (defensor)
-ratio      = offenseDmg / (offenseDmg + defenseDmg)
-damage     = clamp(round((1 + ratio*29) * jitter[0.8,1.2]), 1, 30)
+REF        = 300   // 100 Strength + 100 Attack + 100 weapon.Damage, el techo "entrenado a tope" sin buffs
+potential  = clamp(offenseDmg / REF * 30, 1, 30)             // el techo del atacante, sin importar el rival
+mitigation = defenseDmg / (defenseDmg + REF)                 // el rival solo recorta una fracción de ese techo
+damage     = clamp(round(potential * (1 - mitigation) * jitter[0.8,1.2]), 1, 30)
 
 // Daño crítico: SIEMPRE 31-50
 // ~90% de las veces se agrupa alrededor de weapon.CritPower (±15%);
