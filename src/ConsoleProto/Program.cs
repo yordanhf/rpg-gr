@@ -7,7 +7,7 @@ var player = CharacterLoader.LoadPlayer();
 CombatEngine? activeEngine = null;
 Combatant? activeNpc = null;
 
-Console.WriteLine("Commands: kill <rat|deer|beast>, reset, flee (or stop), listk, quit");
+Console.WriteLine("Commands: kill <rat|deer|beast>, shape [target], reset, flee (or stop), listk, quit");
 
 while (true)
 {
@@ -39,12 +39,16 @@ while (true)
             HandleListEmotes();
             break;
 
+        case "shape":
+            HandleShape(parts);
+            break;
+
         case "quit":
         case "exit":
             return;
 
         default:
-            Console.WriteLine("Unknown command. Try: kill <rat|deer|beast>, reset, flee, listk, quit");
+            Console.WriteLine("Unknown command. Try: kill <rat|deer|beast>, shape [target], reset, flee, listk, quit");
             break;
     }
 }
@@ -109,6 +113,24 @@ void HandleReset()
     Console.WriteLine("HP/MP restored.");
 }
 
+void HandleShape(string[] parts)
+{
+    if (parts.Length >= 2)
+    {
+        var name = parts[1];
+        if (activeNpc != null && activeNpc.Name.Contains(name, StringComparison.OrdinalIgnoreCase))
+            Console.WriteLine(DescribeCondition(activeNpc));
+        else
+            Console.WriteLine("You don't see that here.");
+        return;
+    }
+
+    if (activeEngine is { IsFinished: false } && activeNpc != null)
+        Console.WriteLine(DescribeCondition(activeNpc));
+    else
+        Console.WriteLine("You're not in combat.");
+}
+
 void HandleListEmotes()
 {
     var standardEmotes = EmoteTable.CreateStandard();
@@ -139,8 +161,6 @@ static async Task RunCombatAsync(CombatEngine engine, Combatant player, Combatan
 
         engine.PlaySecondTurn();
         await Task.Delay(1000);
-
-        Console.WriteLine($"   [Round {engine.Round}] {player.Name}: {player.CurrentHp}/{player.MaxHp} HP | {npc.Name}: {npc.CurrentHp}/{npc.MaxHp} HP");
     }
 
     if (engine.Winner == player)
@@ -149,4 +169,37 @@ static async Task RunCombatAsync(CombatEngine engine, Combatant player, Combatan
         Console.WriteLine("You have died.");
     else
         Console.WriteLine($"You disengage from {npc.Name}.");
+}
+
+static string DescribeCondition(Combatant target)
+{
+    if (target.IsDead)
+        return target.IsPlayer ? "You are dead." : $"{target.Name} is dead.";
+
+    // Worst to best, 6 bands of the target's HP ratio — never the raw numbers.
+    string[] npcConditions =
+    {
+        "is in critical condition, very close to death!",
+        "is near death.",
+        "doesn't look so great.",
+        "is in average condition.",
+        "is in good condition.",
+        "is in perfect condition."
+    };
+    string[] playerConditions =
+    {
+        "are in critical condition, very close to death!",
+        "are near death.",
+        "don't look so great.",
+        "are in average condition.",
+        "are in good condition.",
+        "are in perfect condition."
+    };
+
+    double ratio = (double)target.CurrentHp / target.MaxHp;
+    int tier = Math.Clamp((int)(ratio * npcConditions.Length), 0, npcConditions.Length - 1);
+
+    return target.IsPlayer
+        ? $"You {playerConditions[tier]}"
+        : $"{target.Name} {npcConditions[tier]}";
 }
