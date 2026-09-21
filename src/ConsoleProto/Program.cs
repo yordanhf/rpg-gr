@@ -7,7 +7,7 @@ var player = CharacterLoader.LoadPlayer();
 CombatEngine? activeEngine = null;
 Combatant? activeNpc = null;
 
-Console.WriteLine("Commands: kill <rat|deer|beast>, shape [target], reset, flee (or stop), listk, quit");
+Console.WriteLine("Commands: kill <rat|deer|beast>, shape [target], simulate [rounds], reset, flee (or stop), listk, quit");
 
 while (true)
 {
@@ -41,6 +41,10 @@ while (true)
 
         case "shape":
             HandleShape(parts);
+            break;
+
+        case "simulate":
+            HandleSimulate(parts);
             break;
 
         case "quit":
@@ -139,6 +143,18 @@ void HandleShape(string[] parts)
         Console.WriteLine(DescribeCondition(activeNpc));
     else
         Console.WriteLine("You're not in combat.");
+}
+
+void HandleSimulate(string[] parts)
+{
+    int rounds = 1000;
+    if (parts.Length >= 2 && (!int.TryParse(parts[1], out rounds) || rounds <= 0))
+    {
+        Console.WriteLine("Usage: simulate [rounds]");
+        return;
+    }
+
+    Simulation.Run(player, rounds);
 }
 
 void HandleListEmotes()
