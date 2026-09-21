@@ -14,6 +14,16 @@ public static class CombatConstants
     /// Chance that a non-crit hit rolls "strong": damage scaled by 120-160% instead of the usual 80-120%.
     public const double StrongHitChance = 0.05;
 
+    /// A hit that leaves HP at or below 0 doesn't kill outright: the target falls bleeding, unless HP ends up
+    /// this far below 0 (or more), which is instant death.
+    public const int InstantDeathHp = 15;
+
+    /// How many rounds a fallen combatant lasts before bleeding out, unless bandaged or finished off first.
+    public const int BleedRounds = 10;
+
+    /// Fraction of MaxHp a bandaged combatant gets back.
+    public const double BandageHealFraction = 0.10;
+
     public const int MinCritDamage = 31;
     public const int MaxCritDamage = 50;
 

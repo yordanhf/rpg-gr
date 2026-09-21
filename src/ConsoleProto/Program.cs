@@ -6,8 +6,9 @@ Combatant? player = null; // no character until `create`; lives in memory only, 
 
 CombatEngine? activeEngine = null;
 Combatant? activeNpc = null;
+string? activeNpcId = null; // the id typed in `kill <id>`, so the same (wounded/bleeding) NPC is reused instead of respawned
 
-Console.WriteLine($"Commands: create, kill <{string.Join('|', CharacterLoader.ListNpcIds())}>, shape [target], simulate [rounds] [npc], reset, flee (or stop), listk, quit");
+Console.WriteLine($"Commands: create, kill <{string.Join('|', CharacterLoader.ListNpcIds())}>, shape [target], bandage [target], simulate [rounds] [npc], reset, flee (or stop), listk, quit");
 
 while (true)
 {
@@ -27,6 +28,10 @@ while (true)
 
         case "kill":
             HandleKill(parts);
+            break;
+
+        case "bandage":
+            HandleBandage(parts);
             break;
 
         case "flee":
@@ -55,7 +60,7 @@ while (true)
             return;
 
         default:
-            Console.WriteLine("Unknown command. Try: create, kill <npc>, shape [target], simulate [rounds] [npc], reset, flee, listk, quit");
+            Console.WriteLine("Unknown command. Try: create, kill <npc>, shape [target], bandage [target], simulate [rounds] [npc], reset, flee, listk, quit");
             break;
     }
 }
@@ -89,16 +94,27 @@ bool RequirePlayer()
     return false;
 }
 
+bool PlayerCanAct()
+{
+    if (player!.IsBleeding)
+    {
+        Console.WriteLine("You are on the ground, bleeding. You can't do anything!");
+        return false;
+    }
+
+    if (player.IsDead)
+    {
+        Console.WriteLine("You are dead. Type: reset");
+        return false;
+    }
+
+    return true;
+}
+
 void HandleKill(string[] parts)
 {
-    if (!RequirePlayer())
+    if (!RequirePlayer() || !PlayerCanAct())
         return;
-
-    if (activeEngine is { IsFinished: false })
-    {
-        Console.WriteLine("You are already in combat.");
-        return;
-    }
 
     if (parts.Length < 2)
     {
@@ -106,7 +122,34 @@ void HandleKill(string[] parts)
         return;
     }
 
-    var npc = CharacterLoader.LoadNpc(parts[1]);
+    var id = parts[1].ToLowerInvariant();
+
+    // Same NPC as last time? Reuse it (wounded, bleeding...) instead of spawning a fresh copy. Dead ones respawn.
+    bool sameNpc = activeNpc != null && activeNpcId == id && !activeNpc.IsDead;
+
+    if (activeEngine is { IsFinished: false } current)
+    {
+        // In combat with a fallen opponent: `kill` finishes it off. Anything else is a second fight.
+        if (sameNpc && activeNpc!.IsBleeding)
+        {
+            if (!current.FinishOff(player!))
+                Console.WriteLine("There is nobody to finish off.");
+        }
+        else
+        {
+            Console.WriteLine("You are already in combat.");
+        }
+        return;
+    }
+
+    if (sameNpc && activeNpc!.IsBleeding)
+    {
+        // Not fighting it anymore: someone lying there can only be bandaged, not attacked.
+        Console.WriteLine($"{Cap(activeNpc.Name)} is on the ground, bleeding. You can only bandage it: bandage {id}");
+        return;
+    }
+
+    var npc = sameNpc ? activeNpc! : CharacterLoader.LoadNpc(id);
     if (npc == null)
     {
         Console.WriteLine($"No such target: {parts[1]}");
@@ -114,18 +157,78 @@ void HandleKill(string[] parts)
     }
 
     activeNpc = npc;
+    activeNpcId = id;
 
     // Player typed "kill" -> keeps initiative every round.
     var engine = new CombatEngine(player!, npc, rng);
     engine.OnAttackResult += result => LineEditor.Print(() => EmoteHighlighter.WriteLine(result.EmoteText, result.Tier));
+    engine.OnNarration += text => LineEditor.Print(() => Console.WriteLine(text));
     activeEngine = engine;
 
     Console.WriteLine($"You attack {npc.Name}!");
     _ = RunCombatAsync(engine, player!, npc);
 }
 
+// Only works while someone is bleeding. In combat with them, `bandage` alone is enough; otherwise a name is required.
+void HandleBandage(string[] parts)
+{
+    if (!RequirePlayer() || !PlayerCanAct())
+        return;
+
+    bool inCombat = activeEngine is { IsFinished: false };
+    Combatant? target;
+
+    if (parts.Length < 2)
+    {
+        if (inCombat && activeNpc is { IsBleeding: true })
+        {
+            target = activeNpc;
+        }
+        else if (activeNpc is { IsBleeding: true })
+        {
+            Console.WriteLine($"Bandage whom? Try: bandage {activeNpcId}");
+            return;
+        }
+        else
+        {
+            Console.WriteLine("There is no one here who needs bandaging.");
+            return;
+        }
+    }
+    else
+    {
+        var name = parts[1];
+        bool matches = activeNpc is { IsBleeding: true }
+            && (activeNpcId == name.ToLowerInvariant() || activeNpc.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+        if (!matches)
+        {
+            Console.WriteLine("No one by that name needs bandaging.");
+            return;
+        }
+        target = activeNpc;
+    }
+
+    if (inCombat && ReferenceEquals(target, activeNpc))
+    {
+        // Bandaging the opponent stops the fight; the engine narrates it.
+        if (!activeEngine!.Bandage(player!))
+            Console.WriteLine("There is no one here who needs bandaging.");
+        return;
+    }
+
+    lock (target!)
+        target.Stabilize();
+    Console.WriteLine($"You bandage {target.Name}'s wounds, and the bleeding stops.");
+}
+
 void HandleFlee()
 {
+    if (player is { IsDown: true })
+    {
+        Console.WriteLine("You are on the ground, bleeding. You can't do anything!");
+        return;
+    }
+
     if (activeEngine is { IsFinished: false } engine)
     {
         engine.RequestFlee();
@@ -227,21 +330,68 @@ static async Task RunCombatAsync(CombatEngine engine, Combatant player, Combatan
         await Task.Delay(1000);
 
         engine.PlaySecondTurn();
+        if (engine.IsFinished)
+            break;
         await Task.Delay(1000);
     }
 
-    if (engine.Winner == player)
-        LineEditor.Print(() => Console.WriteLine($"You have slain {npc.Name}!"));
-    else if (engine.Winner == npc)
-        LineEditor.Print(() => Console.WriteLine("You have died."));
-    else
-        LineEditor.Print(() => Console.WriteLine($"You disengage from {npc.Name}."));
+    switch (engine.EndReason)
+    {
+        case CombatEndReason.Slain:
+            LineEditor.Print(() => Console.WriteLine(engine.Winner == player ? $"You have slain {npc.Name}!" : "You have died."));
+            break;
+
+        case CombatEndReason.BledOut:
+            // The engine already narrated it; only the player's own death needs a closing line.
+            if (engine.Winner == npc)
+                LineEditor.Print(() => Console.WriteLine("You have died."));
+            break;
+
+        case CombatEndReason.Fled:
+            LineEditor.Print(() => Console.WriteLine($"You disengage from {npc.Name}."));
+            // The engine is gone, so nobody ticks a fallen NPC's bleeding anymore: do it here.
+            if (npc.IsBleeding)
+                await BleedOutAsync(npc);
+            break;
+
+        // Stabilized: the engine already narrated the bandaging.
+    }
 }
+
+static async Task BleedOutAsync(Combatant npc)
+{
+    while (true)
+    {
+        await Task.Delay(2000);
+
+        bool bledOut;
+        lock (npc)
+        {
+            if (!npc.IsBleeding)
+                return; // bandaged (or finished) in the meantime
+            bledOut = npc.TickBleed();
+        }
+
+        LineEditor.Print(() => Console.WriteLine(bledOut
+            ? $"{Cap(npc.Name)} bleeds out and dies."
+            : $"{Cap(npc.Name)} lies on the ground, bleeding and in need of bandages."));
+
+        if (bledOut)
+            return;
+    }
+}
+
+static string Cap(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
 
 static string DescribeCondition(Combatant target)
 {
     if (target.IsDead)
         return target.IsPlayer ? "You are dead." : $"{target.Name} is dead.";
+
+    if (target.IsBleeding)
+        return target.IsPlayer
+            ? "You are on the ground, bleeding and in need of bandages!"
+            : $"{Cap(target.Name)} is on the ground, bleeding and in need of bandages!";
 
     // Worst to best, 6 bands of the target's HP ratio — never the raw numbers.
     string[] npcConditions =

@@ -1,9 +1,12 @@
 namespace Combat;
 
+public enum LifeState { Alive, Bleeding, Dead }
+
 public class Combatant
 {
     public required string Name { get; init; }
     public required int MaxHp { get; init; }
+    /// Can go below 0: 0 or less means bleeding (or dead if far enough below, see CombatConstants.InstantDeathHp).
     public int CurrentHp { get; private set; }
 
     /// Not spent by anything yet — reserved for profession skills/spells that will cost MP later.
@@ -30,7 +33,14 @@ public class Combatant
     public required double Defense { get; init; }
     public required double Dodge { get; init; }
 
-    public bool IsDead => CurrentHp <= 0;
+    public LifeState State { get; private set; } = LifeState.Alive;
+    public int BleedRoundsLeft { get; private set; }
+
+    public bool IsDead => State == LifeState.Dead;
+    public bool IsBleeding => State == LifeState.Bleeding;
+
+    /// On the ground (bleeding or dead): can't attack or act.
+    public bool IsDown => State != LifeState.Alive;
 
     /// Sum of Absorb across all equipped armor, capped at CombatConstants.MaxArmorPoolTotal.
     public double TotalAbsorb => Math.Min(CombatConstants.MaxArmorPoolTotal, EquippedArmor.Sum(a => a.Absorb));
@@ -43,13 +53,56 @@ public class Combatant
     private readonly List<StatModifier> _modifiers = new();
 
     /// Call once after object initialization, since CurrentHp can't be defaulted from MaxHp in an initializer.
-    public void ResetHp() => CurrentHp = MaxHp;
+    public void ResetHp()
+    {
+        CurrentHp = MaxHp;
+        State = LifeState.Alive;
+        BleedRoundsLeft = 0;
+    }
 
     public void ResetMp() => CurrentMp = MaxMp;
 
     public void ApplyDamage(int amount)
     {
-        CurrentHp = Math.Max(0, CurrentHp - amount);
+        CurrentHp -= amount;
+
+        if (CurrentHp <= -CombatConstants.InstantDeathHp)
+        {
+            State = LifeState.Dead;
+        }
+        else if (CurrentHp <= 0)
+        {
+            State = LifeState.Bleeding;
+            BleedRoundsLeft = CombatConstants.BleedRounds;
+        }
+    }
+
+    /// Finishes off a bleeding combatant.
+    public void Kill() => State = LifeState.Dead;
+
+    /// Bandages a bleeding combatant: stops the bleeding and leaves them at a fraction of MaxHp, able to fight again.
+    public void Stabilize()
+    {
+        if (State != LifeState.Bleeding)
+            return;
+
+        CurrentHp = Math.Max(1, (int)Math.Ceiling(MaxHp * CombatConstants.BandageHealFraction));
+        State = LifeState.Alive;
+        BleedRoundsLeft = 0;
+    }
+
+    /// One round of bleeding. Returns true if this combatant just bled out (and is now dead).
+    public bool TickBleed()
+    {
+        if (State != LifeState.Bleeding)
+            return false;
+
+        BleedRoundsLeft--;
+        if (BleedRoundsLeft > 0)
+            return false;
+
+        State = LifeState.Dead;
+        return true;
     }
 
     public double EffectiveStat(StatType stat)
