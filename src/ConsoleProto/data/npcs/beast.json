@@ -1,0 +1,22 @@
+{
+  "name": "a beast",
+  "isPlayer": false,
+  "maxHp": 60,
+  "maxMp": 0,
+  "strength": 25,
+  "constitution": 25,
+  "agility": 25,
+  "coordination": 25,
+  "aim": 25,
+  "attack": 25,
+  "defense": 25,
+  "dodge": 25,
+  "weapon": {
+    "name": "Claws",
+    "hit": 0,
+    "damage": 0,
+    "critChanceBonus": 0,
+    "critPower": 0
+  },
+  "equippedArmor": []
+}

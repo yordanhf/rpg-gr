@@ -1,0 +1,22 @@
+{
+  "name": "You",
+  "isPlayer": true,
+  "maxHp": 50,
+  "maxMp": 0,
+  "strength": 20,
+  "constitution": 20,
+  "agility": 20,
+  "coordination": 20,
+  "aim": 0,
+  "attack": 0,
+  "defense": 0,
+  "dodge": 0,
+  "weapon": {
+    "name": "Fists",
+    "hit": 0,
+    "damage": 0,
+    "critChanceBonus": 0,
+    "critPower": 0
+  },
+  "equippedArmor": []
+}

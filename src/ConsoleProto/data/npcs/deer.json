@@ -1,0 +1,22 @@
+{
+  "name": "a deer",
+  "isPlayer": false,
+  "maxHp": 45,
+  "maxMp": 0,
+  "strength": 15,
+  "constitution": 15,
+  "agility": 15,
+  "coordination": 15,
+  "aim": 15,
+  "attack": 15,
+  "defense": 15,
+  "dodge": 15,
+  "weapon": {
+    "name": "Antlers",
+    "hit": 0,
+    "damage": 0,
+    "critChanceBonus": 0,
+    "critPower": 0
+  },
+  "equippedArmor": []
+}

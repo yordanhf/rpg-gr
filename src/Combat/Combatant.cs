@@ -6,6 +6,10 @@ public class Combatant
     public required int MaxHp { get; init; }
     public int CurrentHp { get; private set; }
 
+    /// Not spent by anything yet — reserved for profession skills/spells that will cost MP later.
+    public int MaxMp { get; init; }
+    public int CurrentMp { get; private set; }
+
     /// Drives emote perspective ("you" vs. third person) — independent of combat initiative,
     /// since an aggressive NPC can have initiative while the player is still "you" in the text.
     public bool IsPlayer { get; init; }
@@ -37,6 +41,8 @@ public class Combatant
 
     /// Call once after object initialization, since CurrentHp can't be defaulted from MaxHp in an initializer.
     public void ResetHp() => CurrentHp = MaxHp;
+
+    public void ResetMp() => CurrentMp = MaxMp;
 
     public void ApplyDamage(int amount)
     {
