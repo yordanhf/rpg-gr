@@ -60,7 +60,15 @@ public static class AttackResolver
         double mitigation = defense / (defense + CombatConstants.ReferenceMaxOffense);
         double raw = potential * (1 - mitigation);
 
-        double jitter = 0.8 + rng.NextDouble() * 0.4; // always some randomness, +-20% (rule 6.3)
+        // Always some randomness (rule 6.3): usually +-20%, but a small fraction of hits fall outside that band:
+        // "weak" ones land anywhere below it (so low tiers stay possible however strong the attacker gets) and
+        // "strong" ones land above it (so an occasional hit reaches a tier higher than the attacker's usual cap).
+        double roll = rng.NextDouble();
+        double jitter = roll < CombatConstants.WeakHitChance
+            ? rng.NextDouble() * 0.8
+            : roll < CombatConstants.WeakHitChance + CombatConstants.StrongHitChance
+                ? 1.2 + rng.NextDouble() * 0.4
+                : 0.8 + rng.NextDouble() * 0.4;
         int damage = (int)Math.Round(raw * jitter);
         return Math.Clamp(damage, CombatConstants.MinDamage, CombatConstants.MaxNonCritDamage);
     }

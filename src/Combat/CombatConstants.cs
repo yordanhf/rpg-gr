@@ -8,6 +8,12 @@ public static class CombatConstants
 
     public const int MinDamage = 1;
     public const int MaxNonCritDamage = 30;
+    /// Chance that a non-crit hit rolls "weak": damage scaled by 0-80% instead of the usual 80-120%.
+    public const double WeakHitChance = 0.15;
+
+    /// Chance that a non-crit hit rolls "strong": damage scaled by 120-160% instead of the usual 80-120%.
+    public const double StrongHitChance = 0.05;
+
     public const int MinCritDamage = 31;
     public const int MaxCritDamage = 50;
 
