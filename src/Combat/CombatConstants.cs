@@ -10,4 +10,11 @@ public static class CombatConstants
     public const int MaxNonCritDamage = 30;
     public const int MinCritDamage = 31;
     public const int MaxCritDamage = 50;
+
+    /// 100 Strength + 100 Attack + 100 weapon.Damage: the offense a fully-trained, well-armed
+    /// attacker reaches without buffs. Non-crit damage is scaled against this so a character with
+    /// low absolute stats can't reach the top tiers no matter how weak the defender is — only the
+    /// offense/defense ratio moved the needle before, which let two equally weak fighters trade
+    /// Massacre-tier hits.
+    public const double ReferenceMaxOffense = 300;
 }

@@ -50,9 +50,16 @@ public static class AttackResolver
             + attacker.Weapon.Damage + offenseDamageBonus;
         double defense = defender.EffectiveStat(StatType.Constitution) + defender.EffectiveStat(StatType.Defense)
             + defender.TotalAbsorb;
-        double ratio = offense / (offense + defense);
 
-        double raw = 1 + ratio * (CombatConstants.MaxNonCritDamage - 1);
+        // The attacker's own offense caps how hard they can ever hit, regardless of the defender.
+        double potential = Math.Clamp(offense / CombatConstants.ReferenceMaxOffense * CombatConstants.MaxNonCritDamage,
+            CombatConstants.MinDamage, CombatConstants.MaxNonCritDamage);
+
+        // Defense then mitigates a fraction of that potential — same reference scale, so a defense
+        // roughly equal to the offense reference cuts the hit about in half.
+        double mitigation = defense / (defense + CombatConstants.ReferenceMaxOffense);
+        double raw = potential * (1 - mitigation);
+
         double jitter = 0.8 + rng.NextDouble() * 0.4; // always some randomness, +-20% (rule 6.3)
         int damage = (int)Math.Round(raw * jitter);
         return Math.Clamp(damage, CombatConstants.MinDamage, CombatConstants.MaxNonCritDamage);
