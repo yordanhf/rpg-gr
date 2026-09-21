@@ -7,7 +7,7 @@ var player = CharacterLoader.LoadPlayer();
 CombatEngine? activeEngine = null;
 Combatant? activeNpc = null;
 
-Console.WriteLine("Commands: kill <rat|deer|beast>, shape [target], simulate [rounds], reset, flee (or stop), listk, quit");
+Console.WriteLine($"Commands: kill <{string.Join('|', CharacterLoader.ListNpcIds())}>, shape [target], simulate [rounds] [npc], reset, flee (or stop), listk, quit");
 
 while (true)
 {
@@ -52,7 +52,7 @@ while (true)
             return;
 
         default:
-            Console.WriteLine("Unknown command. Try: kill <rat|deer|beast>, shape [target], reset, flee, listk, quit");
+            Console.WriteLine("Unknown command. Try: kill <npc>, shape [target], simulate [rounds] [npc], reset, flee, listk, quit");
             break;
     }
 }
@@ -150,11 +150,11 @@ void HandleSimulate(string[] parts)
     int rounds = 1000;
     if (parts.Length >= 2 && (!int.TryParse(parts[1], out rounds) || rounds <= 0))
     {
-        Console.WriteLine("Usage: simulate [rounds]");
+        Console.WriteLine("Usage: simulate [rounds] [npc]");
         return;
     }
 
-    Simulation.Run(player, rounds);
+    Simulation.Run(player, rounds, parts.Length >= 3 ? parts[2] : null);
 }
 
 void HandleListEmotes()

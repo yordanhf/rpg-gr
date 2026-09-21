@@ -6,16 +6,21 @@ namespace ConsoleProto;
 /// ignoring HP entirely — nobody dies, so every round has both attacks. No engine, no delays.
 internal static class Simulation
 {
-    private static readonly string[] NpcIds = { "rat", "deer", "beast" };
     private static readonly HitTier[] Tiers = Enum.GetValues<HitTier>();
 
-    public static void Run(Combatant player, int rounds)
+    /// npcId null = every JSON found in data/npcs.
+    public static void Run(Combatant player, int rounds, string? npcId = null)
     {
-        foreach (var id in NpcIds)
+        var ids = npcId != null ? new[] { npcId } : CharacterLoader.ListNpcIds();
+
+        foreach (var id in ids)
         {
             var npc = CharacterLoader.LoadNpc(id);
             if (npc == null)
+            {
+                Console.WriteLine($"No such target: {id}");
                 continue;
+            }
 
             var rng = new SystemRandomSource();
             var playerStats = new SideStats();
