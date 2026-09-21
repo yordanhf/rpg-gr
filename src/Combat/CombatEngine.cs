@@ -59,8 +59,8 @@ public class CombatEngine
 
     private void EndOfRound()
     {
-        First.TickCooldowns();
-        Second.TickCooldowns();
+        First.TickEndOfRound();
+        Second.TickEndOfRound();
     }
 
     private void Finish(Combatant winner)
@@ -69,46 +69,6 @@ public class CombatEngine
         Winner = winner;
     }
 
-    public HitResult ResolveAttack(Combatant attacker, Combatant defender)
-    {
-        var emotes = attacker.Weapon.CustomEmotes;
-
-        if (_rng.NextDouble() > HitChance(attacker, defender))
-        {
-            var missVariant = emotes?.TryGetVariants(HitTier.Miss) != null
-                ? emotes.Pick(HitTier.Miss, _rng)
-                : _standardEmotes.Pick(HitTier.Miss, _rng);
-            return HitResult.Miss(missVariant.Format(attacker.Name, defender.Name, attacker.IsPlayer));
-        }
-
-        bool crit = _rng.NextDouble() < CritChance(attacker, defender);
-        var (min, max) = DamageRange(attacker);
-        int raw = _rng.Next(min, max + 1);
-        int dmg = Math.Max(0, (int)((crit ? raw * attacker.CritMultiplier : raw) - defender.Armor));
-
-        HitTier tier = crit
-            ? HitTier.Critical
-            : (HitTier)(1 + Math.Min(5, (int)((raw - min) / (float)(max - min + 1) * 6)));
-
-        var variant = emotes?.TryGetVariants(tier) != null
-            ? emotes.Pick(tier, _rng)
-            : _standardEmotes.Pick(tier, _rng);
-
-        return new HitResult(dmg, tier, variant.Format(attacker.Name, defender.Name, attacker.IsPlayer));
-    }
-
-    private static double HitChance(Combatant attacker, Combatant defender) =>
-        Math.Clamp(attacker.Accuracy - defender.Evasion, 0.05, 0.95);
-
-    private static double CritChance(Combatant attacker, Combatant defender) =>
-        Math.Clamp(attacker.CritChance, 0.0, 1.0);
-
-    private static (int min, int max) DamageRange(Combatant attacker)
-    {
-        int baseMin = attacker.AttackPower + attacker.Weapon.MinDamage;
-        int baseMax = attacker.AttackPower + attacker.Weapon.MaxDamage;
-        int min = (int)(baseMin * 0.8);
-        int max = (int)(baseMax * 1.2);
-        return (min, Math.Max(min, max));
-    }
+    public HitResult ResolveAttack(Combatant attacker, Combatant defender) =>
+        AttackResolver.Resolve(attacker, defender, _rng, standardEmotes: _standardEmotes);
 }

@@ -67,21 +67,30 @@ static Combatant CreatePlayer() => new()
     Name = "You",
     IsPlayer = true,
     MaxHp = 60,
-    Accuracy = 0.85,
-    Evasion = 0.15,
-    CritChance = 0.10,
-    CritMultiplier = 2.0,
-    Armor = 3,
-    AttackPower = 4,
+    Strength = 60,
+    Constitution = 55,
+    Agility = 50,
+    Coordination = 65,
+    Aim = 60,
+    Attack = 55,
+    Defense = 45,
+    Dodge = 40,
     Weapon = new Weapon
     {
         Name = "Iron Sword",
-        MinDamage = 4,
-        MaxDamage = 9,
+        Hit = 70,
+        Damage = 55,
+        CritChanceBonus = 0.003,
+        CritPower = 40,
         CustomEmotes = new EmoteTable()
             .Add(HitTier.Critical,
                 new EmoteVariant("Your blade finds a gap in {0}'s guard — a critical hit!",
                                   "{0}'s blade finds a gap in {1}'s guard — a critical hit!"))
+    },
+    EquippedArmor = new()
+    {
+        new Armor { Name = "Leather Chestplate", Absorb = 25, Deflect = 10 },
+        new Armor { Name = "Leather Boots", Absorb = 10, Deflect = 15 }
     }
 };
 
@@ -90,17 +99,25 @@ static Combatant CreateOrc() => new()
     Name = "the orc",
     IsPlayer = false,
     MaxHp = 50,
-    Accuracy = 0.75,
-    Evasion = 0.10,
-    CritChance = 0.05,
-    CritMultiplier = 1.75,
-    Armor = 2,
-    AttackPower = 5,
+    Strength = 65,
+    Constitution = 60,
+    Agility = 40,
+    Coordination = 45,
+    Aim = 40,
+    Attack = 60,
+    Defense = 35,
+    Dodge = 25,
     Weapon = new Weapon
     {
         Name = "Rusty Axe",
-        MinDamage = 3,
-        MaxDamage = 8
+        Hit = 55,
+        Damage = 50,
+        CritChanceBonus = 0.001,
+        CritPower = 25
+    },
+    EquippedArmor = new()
+    {
+        new Armor { Name = "Hide Vest", Absorb = 15, Deflect = 5 }
     }
 };
 
@@ -110,23 +127,8 @@ static Skill CreatePowerStrike() => new()
     CooldownRounds = 3,
     Execute = (attacker, defender, rng) =>
     {
-        bool hit = rng.NextDouble() <= Math.Clamp(attacker.Accuracy - defender.Evasion + 0.05, 0.05, 0.95);
-        if (!hit)
-        {
-            return HitResult.Miss(attacker.IsPlayer
-                ? $"You attempt a Power Strike on {defender.Name} but miss."
-                : $"{attacker.Name} attempts a Power Strike on {defender.Name} but misses.");
-        }
-
-        int baseMin = attacker.AttackPower + attacker.Weapon.MinDamage;
-        int baseMax = attacker.AttackPower + attacker.Weapon.MaxDamage;
-        int raw = rng.Next((int)(baseMin * 0.8), (int)(baseMax * 1.2) + 1);
-        int dmg = Math.Max(0, (int)(raw * 1.5) - defender.Armor);
-
-        string emote = attacker.IsPlayer
-            ? $"You unleash a Power Strike on {defender.Name}!"
-            : $"{attacker.Name} unleashes a Power Strike on {defender.Name}!";
-
-        return new HitResult(dmg, HitTier.HitVeryHard, emote);
+        var result = AttackResolver.Resolve(attacker, defender, rng, offenseAccuracyBonus: 5, offenseDamageBonus: 20);
+        string prefix = attacker.IsPlayer ? "You unleash a Power Strike! " : $"{attacker.Name} unleashes a Power Strike! ";
+        return result with { EmoteText = prefix + result.EmoteText };
     }
 };
