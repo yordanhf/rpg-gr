@@ -118,8 +118,18 @@ void HandleShape(string[] parts)
     if (parts.Length >= 2)
     {
         var name = parts[1];
+
+        // If you're actually fighting this one, show its live (wounded) condition...
         if (activeNpc != null && activeNpc.Name.Contains(name, StringComparison.OrdinalIgnoreCase))
+        {
             Console.WriteLine(DescribeCondition(activeNpc));
+            return;
+        }
+
+        // ...otherwise fall back to a fresh copy, so "shape rat" works even outside combat.
+        var known = CharacterLoader.LoadNpc(name);
+        if (known != null)
+            Console.WriteLine(DescribeCondition(known));
         else
             Console.WriteLine("You don't see that here.");
         return;
