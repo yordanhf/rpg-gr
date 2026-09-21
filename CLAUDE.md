@@ -17,7 +17,7 @@
 4. **Iniciativa fija:** quien lanzó `kill` ataca primero en **todas** las rondas del combate. Si su ataque mata al otro, el otro ya no responde en esa ronda.
    - Los NPC agresivos que atacan al jugador tienen ellos la iniciativa.
    - Nota de equilibrio: atacar primero es una ventaja real en combates cortos (es intencionado).
-5. **Fin del combate:** muere uno de los dos, o el jugador **se aleja** del NPC (fuera de rango). En Unity se comprueba la distancia en cada ronda.
+5. **Fin del combate:** muere uno de los dos, o el jugador **se aleja** del NPC (fuera de rango; en Unity se comprueba la distancia en cada ronda), o se usa el comando de huida (ver más abajo).
 6. **Resolución de cada ataque:**
    1. Tirada de acierto (precisión del atacante contra evasión del defensor, con modificadores de skills, buffs y debuffs). Si falla → emote `miss`.
    2. Tirada de crítico → `critical hit`.
@@ -28,6 +28,8 @@
    - **Consumen 1 turno:** en la siguiente acción del personaje sustituyen a su ataque normal de esa ronda.
    - **Cooldown en turnos/rondas, NO en tiempo.**
    - Cada **profesión** tiene sus habilidades: unas de combate y otras que no son de combate.
+8bis. **Timing:** cada turno dura **1 segundo**; una ronda completa (ambos combatientes actúan) dura **2 segundos**. El motor (`CombatEngine`) no controla el tiempo real — expone `PlayFirstTurn()`/`PlaySecondTurn()` para que quien lo llame (timer/corrutina en Unity, `Task.Delay` en el prototipo de consola) espacie cada turno; `PlayRound()` sigue existiendo para ejecutar una ronda entera de golpe (usado en la simulación masiva, que no debe tener delays reales).
+8ter. **Huida (versión simple por ahora):** un comando de huida **sin penalización**. Llama a `CombatEngine.RequestFlee()`, que **no corta la ronda en curso** — esa ronda se completa entera (los 2 turnos) y el combate se detiene recién al empezar la siguiente ronda. No hay ganador ni derrota, solo se sale del combate.
 8. Al final de cada ronda: bajan los cooldowns y avanza la duración de buffs y debuffs.
 
 ## Emotes (provisionales, el desarrollador los cambiará)
@@ -143,9 +145,8 @@ damage = 31 + round(effectivePos * 19)   // effectivePos en [0,1], ver AttackRes
 - Implementado en `src/Combat/AttackResolver.cs` (fórmula única, reutilizada tanto por ataques normales como por habilidades vía bonus).
 
 ## Pendiente de decidir
-- Intervalo de tiempo entre rondas.
-- Qué pasa al huir (¿penalización?, ¿el NPC te persigue?).
 - Lista de profesiones y sus habilidades.
+- Si el NPC debe perseguir al jugador tras una huida, o cualquier otra consecuencia más allá de "sin penalización" (por ahora huir es gratis y no hay persecución).
 - Ajustar los valores concretos de stats/armas/armaduras de ejemplo: con los actuales el jugador gana demasiado (~93% en simulación).
 
 ## Siguiente paso
@@ -155,7 +156,7 @@ Montar un **prototipo de consola en C# (.NET 8)** con: rondas automáticas, inic
 - Solución `RpgGr.sln` con dos proyectos (**net9.0** — SDK disponible es .NET 9, no .NET 8):
   - `src/Combat`: motor de combate en C# puro, sin dependencias de Unity (`CombatEngine`, `Combatant`, `Weapon`, `Armor`, `Skill`, `StatType`/`StatModifier`, `AttackResolver`, `EmoteTable`, `IRandomSource` inyectable con semilla).
   - `src/ConsoleProto`: prototipo de consola. Modo interactivo (`dotnet run --project src/ConsoleProto`) y modo de simulación masiva (`dotnet run --project src/ConsoleProto -- simulate <N>`) para equilibrar sin jugar combate a combate.
-- Implementado: rondas automáticas, iniciativa fija de quien inicia el combate, sistema completo de stats/skills/arma/armadura/buffs descrito arriba, clasificación en los 6 niveles + crítico por rango fijo de daño, emotes estándar con variantes, emotes personalizados por arma (ejemplo en la espada del jugador para crítico), una habilidad de ejemplo (`Power Strike`) con cooldown en turnos que se encola y sustituye al ataque normal.
+- Implementado: rondas automáticas con turnos de 1s/ronda de 2s (`PlayFirstTurn`/`PlaySecondTurn`, ver punto 8bis), comando `flee` sin penalización que respeta la ronda en curso (`RequestFlee`, punto 8ter), iniciativa fija de quien inicia el combate, sistema completo de stats/skills/arma/armadura/buffs descrito arriba, clasificación en los 6 niveles + crítico por rango fijo de daño, emotes estándar con variantes, emotes personalizados por arma (ejemplo en la espada del jugador para crítico), una habilidad de ejemplo (`Power Strike`) con cooldown en turnos que se encola y sustituye al ataque normal.
 - Nota de implementación: la perspectiva "You" de los emotes depende de `Combatant.IsPlayer`, no de quién tiene la iniciativa — un NPC agresivo puede iniciar el combate (tener la iniciativa) sin dejar de aparecer en tercera persona en los emotes.
 - Supuestos tomados sin confirmar explícitamente (fáciles de cambiar, avisar si no son correctos):
   - `weapon.Hit` en escala 0-100, igual que `weapon.Damage`, por simetría.
