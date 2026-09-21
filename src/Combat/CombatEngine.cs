@@ -8,7 +8,9 @@ public class CombatEngine
     public bool IsFinished { get; private set; }
     public Combatant? Winner { get; private set; }
 
-    public event Action<string>? OnEmote;
+    /// Carries the full result (including Tier), not just the formatted text, so a presentation
+    /// layer can react to hit intensity (color, screen shake, sound...) without re-parsing the emote.
+    public event Action<HitResult>? OnAttackResult;
 
     private readonly IRandomSource _rng;
     private readonly EmoteTable _standardEmotes;
@@ -76,7 +78,7 @@ public class CombatEngine
             : ResolveAttack(attacker, defender);
 
         defender.ApplyDamage(result.Damage);
-        OnEmote?.Invoke(result.EmoteText);
+        OnAttackResult?.Invoke(result);
     }
 
     private void EndOfRound()

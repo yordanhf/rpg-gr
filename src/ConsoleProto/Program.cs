@@ -1,13 +1,15 @@
 using Combat;
 using ConsoleProto;
 
+ConsoleAnsi.EnableIfWindows();
+
 var rng = new SystemRandomSource();
 var player = CharacterLoader.LoadPlayer();
 
 CombatEngine? activeEngine = null;
 Combatant? activeNpc = null;
 
-Console.WriteLine("Commands: kill <rat|deer|beast>, reset, flee (or stop), quit");
+Console.WriteLine("Commands: kill <rat|deer|beast>, reset, flee (or stop), listk, quit");
 
 while (true)
 {
@@ -35,12 +37,16 @@ while (true)
             HandleReset();
             break;
 
+        case "listk":
+            HandleListEmotes();
+            break;
+
         case "quit":
         case "exit":
             return;
 
         default:
-            Console.WriteLine("Unknown command. Try: kill <rat|deer|beast>, reset, flee, quit");
+            Console.WriteLine("Unknown command. Try: kill <rat|deer|beast>, reset, flee, listk, quit");
             break;
     }
 }
@@ -70,7 +76,7 @@ void HandleKill(string[] parts)
 
     // Player typed "kill" -> keeps initiative every round.
     var engine = new CombatEngine(player, npc, rng);
-    engine.OnEmote += Console.WriteLine;
+    engine.OnAttackResult += result => EmoteHighlighter.WriteLine(result.EmoteText, result.Tier);
     activeEngine = engine;
 
     Console.WriteLine($"You attack {npc.Name}!");
@@ -103,6 +109,24 @@ void HandleReset()
     activeNpc?.ResetHp();
     activeNpc?.ResetMp();
     Console.WriteLine("HP/MP restored.");
+}
+
+void HandleListEmotes()
+{
+    var standardEmotes = EmoteTable.CreateStandard();
+    foreach (HitTier tier in Enum.GetValues<HitTier>())
+    {
+        var variants = standardEmotes.TryGetVariants(tier);
+        if (variants == null)
+            continue;
+
+        Console.WriteLine($"-- {tier} --");
+        foreach (var variant in variants)
+        {
+            EmoteHighlighter.WriteLine(variant.Format("You", "the rat", actorIsPlayer: true), tier);
+            EmoteHighlighter.WriteLine(variant.Format("the rat", "you", actorIsPlayer: false), tier);
+        }
+    }
 }
 
 // Each turn takes 1 second; a full round (both combatants act) takes 2 seconds.
