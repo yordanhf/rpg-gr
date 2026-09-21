@@ -116,13 +116,16 @@ void HandleKill(string[] parts)
     if (!RequirePlayer() || !PlayerCanAct())
         return;
 
-    if (parts.Length < 2)
+    // A bare `kill` is enough to finish off the opponent you already left bleeding in this fight.
+    var id = parts.Length >= 2
+        ? parts[1].ToLowerInvariant()
+        : activeEngine is { IsFinished: false } && activeNpc is { IsBleeding: true } ? activeNpcId : null;
+
+    if (id == null)
     {
         Console.WriteLine("Kill what? Try: kill rat");
         return;
     }
-
-    var id = parts[1].ToLowerInvariant();
 
     // Same NPC as last time? Reuse it (wounded, bleeding...) instead of spawning a fresh copy. Dead ones respawn.
     bool sameNpc = activeNpc != null && activeNpcId == id && !activeNpc.IsDead;
@@ -152,7 +155,7 @@ void HandleKill(string[] parts)
     var npc = sameNpc ? activeNpc! : CharacterLoader.LoadNpc(id);
     if (npc == null)
     {
-        Console.WriteLine($"No such target: {parts[1]}");
+        Console.WriteLine($"No such target: {id}");
         return;
     }
 
