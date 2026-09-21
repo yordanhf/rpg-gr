@@ -102,24 +102,63 @@ HitResult ResolveAttack(Combatant atk, Combatant def) {
 }
 ```
 
+## Stats, skills, arma y armadura (DECIDIDO)
+- **4 stats de combate**, escala habitual 0-100 (hasta 125 con buffs, nunca más):
+  - Ofensivos: `Strength`, `Coordination`.
+  - Defensivos: `Constitution`, `Agility`.
+- **4 skills de combate**, misma escala 0-100 (hasta 125 con buffs):
+  - Ofensivos: `Aim`, `Attack`.
+  - Defensivos: `Defense`, `Dodge`.
+- **Arma**, 4 stats:
+  - `Hit` (0-100): entra en el cálculo de acierto.
+  - `Damage` (0-100): entra en el cálculo de daño no-crítico. El arma más potente llega a 100.
+  - `CritChanceBonus`: fracción pequeña (0.1%-0.5%) que se suma al 0.5% base de todos.
+  - `CritPower` (0-100): determina en qué parte del rango de daño crítico (31-50) suele caer esta arma.
+- **Armadura** (por pieza), 2 stats: `Absorb` (se suma a Constitution+Defense, lado de daño) y `Deflect` (se suma a Agility+Dodge, lado de acierto). Sumando **todas las piezas equipadas**, `Absorb` total tiene tope 100 y `Deflect` total tiene tope 100 (dos "bolsas" independientes).
+- **Buffs/debuffs**: modificadores temporales (flat) a cualquiera de las 8 stats/skills, con duración en rondas; bajan al final de cada ronda junto a los cooldowns (regla 8). El valor efectivo de una stat con buffs nunca supera 125.
+
+### Fórmulas (DECIDIDAS)
+```
+// Acierto
+offenseAcc = Coordination + Aim + weapon.Hit                (atacante)
+defenseAcc = Agility + Dodge + armor.TotalDeflect            (defensor)
+hitChance  = offenseAcc / (offenseAcc + defenseAcc)          // 0.5 si offense == defense
+
+// Crítico (si no hubo miss)
+critChance = 0.5% + weapon.CritChanceBonus
+
+// Daño no-crítico: SIEMPRE 1-30, con variación aleatoria ±20% (rule 6.3)
+offenseDmg = Strength + Attack + weapon.Damage               (atacante)
+defenseDmg = Constitution + Defense + armor.TotalAbsorb      (defensor)
+ratio      = offenseDmg / (offenseDmg + defenseDmg)
+damage     = clamp(round((1 + ratio*29) * jitter[0.8,1.2]), 1, 30)
+
+// Daño crítico: SIEMPRE 31-50
+// ~90% de las veces se agrupa alrededor de weapon.CritPower (±15%);
+// ~10% de las veces ignora el arma y sale un valor totalmente aleatorio,
+// para que hasta un arma con CritPower alto pueda sacar alguna vez un 31.
+damage = 31 + round(effectivePos * 19)   // effectivePos en [0,1], ver AttackResolver.cs
+```
+- **Niveles de golpe fijos por rango de daño** (no por posición relativa ni por % de vida — se descarta la opción (b) de "Pendiente de decidir"): Graze 1-3, Hit 4-7, Hit Hard 8-10, Hit Very Hard 11-14, Massive Damage 15-19, Massacre 20-30, Critical 31-50.
+- Implementado en `src/Combat/AttackResolver.cs` (fórmula única, reutilizada tanto por ataques normales como por habilidades vía bonus).
+
 ## Pendiente de decidir
-- **Cómo se asigna el nivel del golpe:**
-  - (a) por la **posición de la tirada dentro del rango de daño posible** (propuesto en el esqueleto; los emotes siguen teniendo sentido al subir de nivel), o
-  - (b) por el **% de vida del objetivo** que quita el golpe (más dramático).
-- Fórmulas concretas de acierto, crítico, daño y armadura, y qué stats existen.
 - Intervalo de tiempo entre rondas.
 - Qué pasa al huir (¿penalización?, ¿el NPC te persigue?).
 - Lista de profesiones y sus habilidades.
+- Ajustar los valores concretos de stats/armas/armaduras de ejemplo: con los actuales el jugador gana demasiado (~93% en simulación).
 
 ## Siguiente paso
 Montar un **prototipo de consola en C# (.NET 8)** con: rondas automáticas, iniciativa de quien usa `kill`, tirada de acierto/fallo, daño aleatorio, 6 niveles + crítico con los emotes de arriba, emotes personalizados por arma y al menos una habilidad con cooldown en turnos. Objetivo: ver cómo se siente un combate y equilibrar antes de pasarlo a Unity.
 
 ## Estado actual del prototipo
 - Solución `RpgGr.sln` con dos proyectos (**net9.0** — SDK disponible es .NET 9, no .NET 8):
-  - `src/Combat`: motor de combate en C# puro, sin dependencias de Unity (`CombatEngine`, `Combatant`, `Weapon`, `Skill`, `EmoteTable`, `IRandomSource` inyectable con semilla).
+  - `src/Combat`: motor de combate en C# puro, sin dependencias de Unity (`CombatEngine`, `Combatant`, `Weapon`, `Armor`, `Skill`, `StatType`/`StatModifier`, `AttackResolver`, `EmoteTable`, `IRandomSource` inyectable con semilla).
   - `src/ConsoleProto`: prototipo de consola. Modo interactivo (`dotnet run --project src/ConsoleProto`) y modo de simulación masiva (`dotnet run --project src/ConsoleProto -- simulate <N>`) para equilibrar sin jugar combate a combate.
-- Implementado: rondas automáticas, iniciativa fija de quien inicia el combate, acierto/fallo, crítico, daño con variación ±20%, clasificación en los 6 niveles + crítico, emotes estándar con variantes, emotes personalizados por arma (ejemplo en la espada del jugador para crítico), una habilidad de ejemplo (`Power Strike`) con cooldown en turnos que se encola y sustituye al ataque normal.
-- Decisión tomada para el prototipo sobre el punto pendiente "cómo se asigna el nivel del golpe": opción **(a)**, por posición de la tirada dentro del rango de daño posible (la que ya proponía el esqueleto de referencia). La opción (b) por % de vida restante sigue sin descartarse si (a) no convence al probarlo.
+- Implementado: rondas automáticas, iniciativa fija de quien inicia el combate, sistema completo de stats/skills/arma/armadura/buffs descrito arriba, clasificación en los 6 niveles + crítico por rango fijo de daño, emotes estándar con variantes, emotes personalizados por arma (ejemplo en la espada del jugador para crítico), una habilidad de ejemplo (`Power Strike`) con cooldown en turnos que se encola y sustituye al ataque normal.
 - Nota de implementación: la perspectiva "You" de los emotes depende de `Combatant.IsPlayer`, no de quién tiene la iniciativa — un NPC agresivo puede iniciar el combate (tener la iniciativa) sin dejar de aparecer en tercera persona en los emotes.
-- Con las stats de ejemplo (jugador vs. orco) la simulación masiva da ~96% de victorias del jugador en ~7 rondas de media: demasiado favorable, pendiente de ajustar cuando se definan fórmulas y stats reales.
-- Sigue pendiente todo lo de la sección "Pendiente de decidir" salvo el punto de nivel de golpe ya decidido arriba para el prototipo.
+- Supuestos tomados sin confirmar explícitamente (fáciles de cambiar, avisar si no son correctos):
+  - `weapon.Hit` en escala 0-100, igual que `weapon.Damage`, por simetría.
+  - `Absorb` y `Deflect` de la armadura son dos "bolsas" independientes (cada una con tope 100 sumando todas las piezas), no un total combinado.
+  - Crítico "flojo" aleatorio: 10% de probabilidad de ignorar `CritPower` del arma y salir un valor totalmente al azar en 31-50; el otro 90% se agrupa ±15% alrededor de la posición que marca `CritPower`.
+- Con las stats de ejemplo (jugador vs. orco) la simulación masiva da ~93% de victorias del jugador en ~4 rondas de media (los combates son más cortos ahora porque el daño fijo 1-30/31-50 es alto respecto a los HP de ejemplo): pendiente de ajustar valores concretos de personajes/armas.
