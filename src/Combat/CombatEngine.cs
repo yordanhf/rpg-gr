@@ -12,6 +12,7 @@ public class CombatEngine
 
     private readonly IRandomSource _rng;
     private readonly EmoteTable _standardEmotes;
+    private bool _fleeRequested;
 
     public CombatEngine(Combatant first, Combatant second, IRandomSource rng, EmoteTable? standardEmotes = null)
     {
@@ -21,13 +22,37 @@ public class CombatEngine
         _standardEmotes = standardEmotes ?? EmoteTable.CreateStandard();
     }
 
+    /// Runs both turns of a round back to back, with no pacing between them.
+    /// Use PlayFirstTurn/PlaySecondTurn instead when the caller needs to space turns out in real time
+    /// (each turn is 1 second, so a full round is 2 seconds — that pacing belongs to the caller, e.g.
+    /// Unity's timer/coroutine or the console prototype's Task.Delay, not to this engine).
     public void PlayRound()
+    {
+        PlayFirstTurn();
+        PlaySecondTurn();
+    }
+
+    public void PlayFirstTurn()
     {
         if (IsFinished)
             return;
 
+        // A flee request never cuts short a round already in progress — it only stops the next one.
+        if (_fleeRequested)
+        {
+            IsFinished = true;
+            return;
+        }
+
         Round++;
         Act(First, Second);
+    }
+
+    public void PlaySecondTurn()
+    {
+        if (IsFinished)
+            return;
+
         if (!Second.IsDead)
             Act(Second, First);
 
@@ -37,11 +62,8 @@ public class CombatEngine
             Finish(First.IsDead ? Second : First);
     }
 
-    public void EndByFlee()
-    {
-        if (!IsFinished)
-            IsFinished = true;
-    }
+    /// No penalty: combat stops once the round already in progress finishes.
+    public void RequestFlee() => _fleeRequested = true;
 
     private void Act(Combatant attacker, Combatant defender)
     {

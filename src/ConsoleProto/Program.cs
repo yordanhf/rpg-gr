@@ -23,14 +23,39 @@ static async Task RunInteractiveCombat()
 
     player.QueueSkill(CreatePowerStrike());
 
+    Console.WriteLine("Type 'flee' and press Enter at any time to disengage.");
+    _ = Task.Run(() =>
+    {
+        while (!engine.IsFinished)
+        {
+            if (string.Equals(Console.ReadLine()?.Trim(), "flee", StringComparison.OrdinalIgnoreCase))
+            {
+                engine.RequestFlee();
+                return;
+            }
+        }
+    });
+
+    // Each turn takes 1 second; a full round (both combatants act) takes 2 seconds.
     while (!engine.IsFinished)
     {
-        engine.PlayRound();
+        engine.PlayFirstTurn();
+        if (engine.IsFinished)
+            break;
+        await Task.Delay(1000);
+
+        engine.PlaySecondTurn();
+        await Task.Delay(1000);
+
         Console.WriteLine($"   [Round {engine.Round}] {player.Name}: {player.CurrentHp}/{player.MaxHp} HP | {orc.Name}: {orc.CurrentHp}/{orc.MaxHp} HP");
-        await Task.Delay(800);
     }
 
-    Console.WriteLine(engine.Winner == player ? "You win!" : "You have died.");
+    if (engine.Winner == player)
+        Console.WriteLine("You win!");
+    else if (engine.Winner == orc)
+        Console.WriteLine("You have died.");
+    else
+        Console.WriteLine("You flee from the fight.");
 }
 
 static void RunSimulation(int combatCount)
