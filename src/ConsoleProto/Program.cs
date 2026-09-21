@@ -1,8 +1,6 @@
 using Combat;
 using ConsoleProto;
 
-ConsoleAnsi.EnableIfWindows();
-
 var rng = new SystemRandomSource();
 var player = CharacterLoader.LoadPlayer();
 
