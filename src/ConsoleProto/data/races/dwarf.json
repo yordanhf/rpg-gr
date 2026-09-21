@@ -1,0 +1,9 @@
+{
+  "name": "Dwarf",
+  "description": "Stout as the mountain stone: immensely strong and very hard to bring down. Slow on their feet, clumsy at fine work, and with little patience for books.",
+  "constitutionPercent": 10,
+  "strengthPercent": 10,
+  "intelligencePercent": -10,
+  "coordinationPercent": -5,
+  "agilityPercent": -5
+}

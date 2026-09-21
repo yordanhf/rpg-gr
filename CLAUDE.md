@@ -119,6 +119,22 @@ HitResult ResolveAttack(Combatant atk, Combatant def) {
 - **Armadura** (por pieza), 2 stats: `Absorb` (se suma a Constitution+Defense, lado de daño) y `Deflect` (se suma a Agility+Dodge, lado de acierto). Sumando **todas las piezas equipadas**, `Absorb` total tiene tope 100 y `Deflect` total tiene tope 100 (dos "bolsas" independientes).
 - **Buffs/debuffs**: modificadores temporales (flat) a cualquiera de las 8 stats/skills, con duración en rondas; bajan al final de cada ronda junto a los cooldowns (regla 8). El valor efectivo de una stat con buffs nunca supera 125.
 
+### Razas (DECIDIDO)
+- Cada personaje (player y NPC) tiene una **raza** (`"race": "<id>"` en su JSON → `data/races/<id>.json`, clase `Race` en `src/Combat/Race.cs`). Si el id no existe, la carga falla con un error claro.
+- La raza da **bonos/penalizaciones en %** sobre los stats base (`X * (1 + pct/100)`), **solo a los stats, nunca a las 4 skills** (las skills se entrenan). Se aplica en `Combatant.EffectiveStat`, antes de los buffs planos y antes del tope de 125.
+- Existe un 5º stat, **`Intelligence`**: no interviene en ninguna fórmula de combate (a propósito), se usará en las habilidades de profesión. Es `required` en el JSON y está en `StatType` (los buffs pueden modificarlo).
+- **Cada raza suma 0** (ninguna es mejor que otra):
+
+| Raza | Bonos | Penalizaciones |
+|---|---|---|
+| human | +5% Coordination | -5% Intelligence |
+| dwarf | +10% Constitution, +10% Strength | -10% Intelligence, -5% Coordination, -5% Agility |
+| elf | +5% Agility, +10% Intelligence | -10% Constitution, -5% Strength |
+| orc | +10% Strength, +5% Constitution | -10% Intelligence, -5% Coordination |
+| creature | — (sin bonos, raza por defecto de NPCs como rat/deer/beast) | — |
+
+- El player actual es `human` (placeholder, aún no hay creación de personaje). Ojo: con stats base ~20, un 10% son solo +2 puntos; el efecto crece con stats altos.
+
 ### Fórmulas (DECIDIDAS)
 ```
 // Acierto
@@ -163,10 +179,10 @@ Montar un **prototipo de consola en C# (.NET 8)** con: rondas automáticas, inic
 ## Estado actual del prototipo
 - Solución `RpgGr.sln` con dos proyectos (**net9.0** — SDK disponible es .NET 9, no .NET 8):
   - `src/Combat`: motor de combate en C# puro, sin dependencias de Unity (`CombatEngine`, `Combatant`, `Weapon`, `Armor`, `Skill`, `StatType`/`StatModifier`, `AttackResolver`, `EmoteTable`, `IRandomSource` inyectable con semilla).
-  - `src/ConsoleProto`: prototipo de consola, ahora un **bucle de comandos** real (`kill <rat|deer|beast>`, `shape [target]`, `simulate [rounds] [npc]`, `reset`, `flee`/`stop`, `listk`, `quit`), no una pelea guionizada. `CharacterLoader` deserializa cada personaje directamente en un `Combatant` vía `System.Text.Json` (sus propiedades `required` obligan a que el JSON tenga todas las stats).
+  - `src/ConsoleProto`: prototipo de consola, ahora un **bucle de comandos** real (`create`, `kill <rat|deer|beast>`, `shape [target]`, `simulate [rounds] [npc]`, `reset`, `flee`/`stop`, `listk`, `quit`), no una pelea guionizada. `CharacterLoader` deserializa cada personaje directamente en un `Combatant` vía `System.Text.Json` (sus propiedades `required` obligan a que el JSON tenga todas las stats).
 - **HP nunca se muestra en número**, ni en las rondas ni en ningún otro sitio. El comando `shape` (sin argumento = tu oponente actual en combate; `shape <nombre>` = ese objetivo si coincide con el NPC activo) da una de 6 pistas según el % de vida, de peor a mejor: *critical condition, very close to death* / *near death* / *doesn't look so great* / *average condition* / *good condition* / *perfect condition* (más un mensaje aparte si está muerto). Implementado en `Program.cs` (`DescribeCondition`), es puramente de consola — la librería `Combat` sigue exponiendo `CurrentHp`/`MaxHp` normales, la ofuscación es solo de presentación.
 - Persistencia en **JSON** (no BD todavía): `src/ConsoleProto/data/player.json` y `data/npcs/{rat,deer,beast}.json`, copiados a la salida de compilación. Personajes de nivel 1:
-  - Player: 20 en las 4 stats, 0 en las 4 skills (arrancan en 0 y se entrenan más adelante — no implementado), 50 HP, 0 MP (reservado para skills/hechizos futuros, sin uso aún), sin arma ni armadura.
+  - Player (raza human): 20 en las 4 stats y en Intelligence, 0 en las 4 skills (arrancan en 0 y se entrenan más adelante — no implementado), 50 HP, 0 MP (reservado para skills/hechizos futuros, sin uso aún), sin arma ni armadura.
   - Rat/Deer/Beast: 5/15/25 en las **4 stats**, **0 en las 4 skills** (igual que el player, ver nota más abajo), 25/45/60 HP, con un "arma natural" (Bite/Antlers/Claws) cuyos stats de combate están todos en 0 — solo aporta el nombre para emotes futuros.
 - Implementado: rondas automáticas con turnos de 1s/ronda de 2s (`PlayFirstTurn`/`PlaySecondTurn`, punto 8bis), `flee` sin penalización que respeta la ronda en curso (`RequestFlee`, punto 8ter), iniciativa fija de quien inicia el combate, sistema completo de stats/skills/arma/armadura/buffs, clasificación en los 6 niveles + crítico por rango fijo de daño, emotes estándar con variantes.
 - Nota de implementación: la perspectiva "You" de los emotes depende de `Combatant.IsPlayer`, no de quién tiene la iniciativa — un NPC agresivo puede iniciar el combate (tener la iniciativa) sin dejar de aparecer en tercera persona en los emotes.

@@ -8,6 +8,8 @@ public enum StatType
     // Defensive stats
     Constitution,
     Agility,
+    // Not used by the combat formulas — reserved for profession skills.
+    Intelligence,
 
     // Offensive skills
     Aim,

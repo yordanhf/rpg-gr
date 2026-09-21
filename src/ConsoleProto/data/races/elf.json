@@ -1,0 +1,8 @@
+{
+  "name": "Elf",
+  "description": "Graceful, nimble and wise beyond their years. Their slender frames make them frail and poor at brute force.",
+  "constitutionPercent": -10,
+  "strengthPercent": -5,
+  "agilityPercent": 5,
+  "intelligencePercent": 10
+}

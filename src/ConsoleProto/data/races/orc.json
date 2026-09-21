@@ -1,0 +1,8 @@
+{
+  "name": "Orc",
+  "description": "Brutish and powerful, and tough enough to shrug off a beating. Clumsy in the hands, and dull of mind.",
+  "strengthPercent": 10,
+  "constitutionPercent": 5,
+  "intelligencePercent": -10,
+  "coordinationPercent": -5
+}

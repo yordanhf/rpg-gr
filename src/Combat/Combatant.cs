@@ -14,6 +14,8 @@ public class Combatant
     /// since an aggressive NPC can have initiative while the player is still "you" in the text.
     public bool IsPlayer { get; init; }
 
+    public Race Race { get; init; } = Race.None;
+
     public required Weapon Weapon { get; init; }
     public List<Armor> EquippedArmor { get; init; } = new();
 
@@ -22,6 +24,7 @@ public class Combatant
     public required double Constitution { get; init; }
     public required double Agility { get; init; }
     public required double Coordination { get; init; }
+    public required double Intelligence { get; init; }
     public required double Aim { get; init; }
     public required double Attack { get; init; }
     public required double Defense { get; init; }
@@ -51,7 +54,7 @@ public class Combatant
 
     public double EffectiveStat(StatType stat)
     {
-        double baseValue = GetBaseStat(stat);
+        double baseValue = GetBaseStat(stat) * (1 + Race.PercentFor(stat) / 100);
         double modifierSum = _modifiers.Where(m => m.Stat == stat).Sum(m => m.Amount);
         return Math.Clamp(baseValue + modifierSum, 0, CombatConstants.MaxEffectiveStat);
     }
@@ -62,6 +65,7 @@ public class Combatant
         StatType.Constitution => Constitution,
         StatType.Agility => Agility,
         StatType.Coordination => Coordination,
+        StatType.Intelligence => Intelligence,
         StatType.Aim => Aim,
         StatType.Attack => Attack,
         StatType.Defense => Defense,
