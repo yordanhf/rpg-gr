@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Combat;
 
@@ -17,7 +18,34 @@ internal static class CharacterLoader
 
     private static string DataDir => Path.Combine(AppContext.BaseDirectory, "data");
 
-    public static Combatant LoadPlayer() => LoadFrom(Path.Combine(DataDir, "player.json"));
+    /// Builds a new player from the base stats in data/player.json, with the chosen name and race.
+    public static Combatant CreatePlayer(string name, string raceId)
+    {
+        var node = JsonNode.Parse(File.ReadAllText(Path.Combine(DataDir, "player.json")))!.AsObject();
+        node["name"] = name;
+        node["race"] = raceId;
+
+        var player = node.Deserialize<Combatant>(Options)
+            ?? throw new InvalidDataException("Could not create player from data/player.json");
+        player.ResetHp();
+        player.ResetMp();
+        return player;
+    }
+
+    /// Races a new character can pick (id = file name), alphabetical.
+    public static IReadOnlyList<(string Id, Race Race)> ListPlayableRaces()
+    {
+        var dir = Path.Combine(DataDir, "races");
+        if (!Directory.Exists(dir))
+            return Array.Empty<(string, Race)>();
+
+        return Directory.GetFiles(dir, "*.json")
+            .Select(f => Path.GetFileNameWithoutExtension(f))
+            .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
+            .Select(id => (Id: id, Race: LoadRace(id)))
+            .Where(r => r.Race.Playable)
+            .ToList();
+    }
 
     public static Combatant? LoadNpc(string id)
     {

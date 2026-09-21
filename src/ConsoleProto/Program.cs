@@ -2,17 +2,16 @@ using Combat;
 using ConsoleProto;
 
 var rng = new SystemRandomSource();
-var player = CharacterLoader.LoadPlayer();
+Combatant? player = null; // no character until `create`; lives in memory only, lost on quit
 
 CombatEngine? activeEngine = null;
 Combatant? activeNpc = null;
 
-Console.WriteLine($"Commands: kill <{string.Join('|', CharacterLoader.ListNpcIds())}>, shape [target], simulate [rounds] [npc], reset, flee (or stop), listk, quit");
+Console.WriteLine($"Commands: create, kill <{string.Join('|', CharacterLoader.ListNpcIds())}>, shape [target], simulate [rounds] [npc], reset, flee (or stop), listk, quit");
 
 while (true)
 {
-    Console.Write("> ");
-    var input = Console.ReadLine();
+    var input = LineEditor.ReadLine("> ");
     if (input == null)
         break;
 
@@ -22,6 +21,10 @@ while (true)
 
     switch (parts[0].ToLowerInvariant())
     {
+        case "create":
+            HandleCreate();
+            break;
+
         case "kill":
             HandleKill(parts);
             break;
@@ -52,13 +55,45 @@ while (true)
             return;
 
         default:
-            Console.WriteLine("Unknown command. Try: kill <npc>, shape [target], simulate [rounds] [npc], reset, flee, listk, quit");
+            Console.WriteLine("Unknown command. Try: create, kill <npc>, shape [target], simulate [rounds] [npc], reset, flee, listk, quit");
             break;
     }
 }
 
+void HandleCreate()
+{
+    if (activeEngine is { IsFinished: false })
+    {
+        Console.WriteLine("Finish or flee the current fight first.");
+        return;
+    }
+
+    var created = CharacterCreation.Run();
+    if (created == null)
+    {
+        Console.WriteLine("Character creation cancelled.");
+        return;
+    }
+
+    player = created;
+    activeEngine = null;
+    activeNpc = null;
+}
+
+bool RequirePlayer()
+{
+    if (player != null)
+        return true;
+
+    Console.WriteLine("You have no character yet. Type: create");
+    return false;
+}
+
 void HandleKill(string[] parts)
 {
+    if (!RequirePlayer())
+        return;
+
     if (activeEngine is { IsFinished: false })
     {
         Console.WriteLine("You are already in combat.");
@@ -81,12 +116,12 @@ void HandleKill(string[] parts)
     activeNpc = npc;
 
     // Player typed "kill" -> keeps initiative every round.
-    var engine = new CombatEngine(player, npc, rng);
-    engine.OnAttackResult += result => EmoteHighlighter.WriteLine(result.EmoteText, result.Tier);
+    var engine = new CombatEngine(player!, npc, rng);
+    engine.OnAttackResult += result => LineEditor.Print(() => EmoteHighlighter.WriteLine(result.EmoteText, result.Tier));
     activeEngine = engine;
 
     Console.WriteLine($"You attack {npc.Name}!");
-    _ = RunCombatAsync(engine, player, npc);
+    _ = RunCombatAsync(engine, player!, npc);
 }
 
 void HandleFlee()
@@ -104,13 +139,16 @@ void HandleFlee()
 
 void HandleReset()
 {
+    if (!RequirePlayer())
+        return;
+
     if (activeEngine is { IsFinished: false })
     {
         Console.WriteLine("Finish or flee the current fight first.");
         return;
     }
 
-    player.ResetHp();
+    player!.ResetHp();
     player.ResetMp();
     activeNpc?.ResetHp();
     activeNpc?.ResetMp();
@@ -147,6 +185,9 @@ void HandleShape(string[] parts)
 
 void HandleSimulate(string[] parts)
 {
+    if (!RequirePlayer())
+        return;
+
     int rounds = 1000;
     if (parts.Length >= 2 && (!int.TryParse(parts[1], out rounds) || rounds <= 0))
     {
@@ -154,7 +195,7 @@ void HandleSimulate(string[] parts)
         return;
     }
 
-    Simulation.Run(player, rounds, parts.Length >= 3 ? parts[2] : null);
+    Simulation.Run(player!, rounds, parts.Length >= 3 ? parts[2] : null);
 }
 
 void HandleListEmotes()
@@ -190,11 +231,11 @@ static async Task RunCombatAsync(CombatEngine engine, Combatant player, Combatan
     }
 
     if (engine.Winner == player)
-        Console.WriteLine($"You have slain {npc.Name}!");
+        LineEditor.Print(() => Console.WriteLine($"You have slain {npc.Name}!"));
     else if (engine.Winner == npc)
-        Console.WriteLine("You have died.");
+        LineEditor.Print(() => Console.WriteLine("You have died."));
     else
-        Console.WriteLine($"You disengage from {npc.Name}.");
+        LineEditor.Print(() => Console.WriteLine($"You disengage from {npc.Name}."));
 }
 
 static string DescribeCondition(Combatant target)
