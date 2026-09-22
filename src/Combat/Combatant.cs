@@ -35,6 +35,9 @@ public class Combatant
 
     /// The weapon currently in hand. Setting it (JSON load, or mid-game via Wield/SheathCurrentWeapon)
     /// remembers the first IsUnarmed weapon it's ever given as the fallback to revert to when sheathing.
+    /// A loader restoring a character who saved mid-combat with a real weapon in hand must set this
+    /// to their unarmed weapon first (so it gets captured), then to the actual current one — see
+    /// CharacterSave.ToCombatant, which is the only place that ordering matters.
     public required Weapon Weapon
     {
         get => _weapon;
@@ -44,6 +47,10 @@ public class Combatant
             _unarmedWeapon ??= value.IsUnarmed ? value : null;
         }
     }
+
+    /// The fallback SheathCurrentWeapon() reverts to — null only if this combatant has never once
+    /// been given an IsUnarmed weapon (shouldn't happen for a properly loaded character).
+    public Weapon? UnarmedWeapon => _unarmedWeapon;
 
     public List<Armor> EquippedArmor { get; init; } = new();
 
@@ -57,6 +64,10 @@ public class Combatant
     /// Bought at a shop; a fresh character has none.
     public Backpack? Backpack { get; set; }
     public List<Item> BackpackItems { get; init; } = new();
+
+    /// Loose items held in hand (not stowed in a backpack) — a pelt you just looted and haven't
+    /// stored yet, say. No backpack needed to hold something this way.
+    public List<Item> HeldItems { get; init; } = new();
 
     /// What this NPC drops on death (e.g. a pelt) — stays on its corpse, not the room floor, until
     /// the corpse fades. Irrelevant for the player.
@@ -113,13 +124,30 @@ public class Combatant
 
     /// Hand-bulk currently spoken for: the wielded weapon, a worn shield (it still needs a hand even
     /// though it's "equipped" — unlike the other five slots, which are strapped on and cost nothing),
-    /// and anything held-but-unworn.
+    /// and anything held-but-unworn. Each held thing takes at least a full hand-slot — a pelt at 0.25
+    /// bulk still occupies one whole hand, no stacking several loose items into it.
     public double UsedHandBulk =>
-        (Weapon.IsUnarmed ? 0 : Weapon.Bulk)
-        + EquippedArmor.Where(a => a.Slots.Contains(BodySlot.Shield)).Sum(a => a.Bulk)
-        + HeldArmor.Sum(a => a.Bulk);
+        (Weapon.IsUnarmed ? 0 : Math.Max(Weapon.Bulk, 1))
+        + EquippedArmor.Where(a => a.Slots.Contains(BodySlot.Shield)).Sum(a => Math.Max(a.Bulk, 1))
+        + HeldArmor.Sum(a => Math.Max(a.Bulk, 1))
+        + HeldItems.Sum(i => Math.Max(i.Bulk, 1));
 
     public double FreeHandBulk => Math.Max(0, CombatConstants.HandCapacity - UsedHandBulk);
+
+    /// Holds a loose item in a free hand, sheathing the wielded weapon first only if there wasn't
+    /// already room without doing so. `sheathed` is what got sheathed, for narration (null if
+    /// nothing needed to move). Returns false (refuses, nothing changes) if it still doesn't fit.
+    public bool TryHoldItem(Item item, out Weapon? sheathed)
+    {
+        double needed = Math.Max(item.Bulk, 1);
+        sheathed = FreeHandBulk < needed ? SheathCurrentWeapon() : null;
+
+        if (FreeHandBulk < needed)
+            return false;
+
+        HeldItems.Add(item);
+        return true;
+    }
 
     /// Fails if a slot the piece needs is already covered by something else worn, or (shields only)
     /// there isn't a free hand for it. `error` explains which.

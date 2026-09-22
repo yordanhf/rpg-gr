@@ -539,8 +539,8 @@ void HandleShape(string[] parts)
         Console.WriteLine("You're not in combat.");
 }
 
-// Corpses first (loot-rights gated), then the room floor (open to anyone). Also auto-sheaths a
-// wielded weapon, same as buying — you need a free hand to take hold of something new.
+// Corpses first (loot-rights gated), then the room floor (open to anyone). Prefers stowing in the
+// backpack if you have room; otherwise a free hand works fine too — no backpack required for that.
 void HandleTake(string[] parts)
 {
     if (!RequirePlayer() || !PlayerCanAct())
@@ -588,15 +588,13 @@ void HandleTake(string[] parts)
         return;
     }
 
-    if (player!.Backpack == null)
+    Weapon? sheathed = null;
+    bool stowedInBackpack = player!.Backpack != null && player.TryStoreInBackpack(item);
+    if (!stowedInBackpack && !player.TryHoldItem(item, out sheathed))
     {
-        Console.WriteLine("You have nothing to carry that in.");
-        return;
-    }
-
-    if (!player.TryStoreInBackpack(item))
-    {
-        Console.WriteLine("Your backpack is full.");
+        Console.WriteLine(player.Backpack != null
+            ? "Your backpack is full and your hands are too."
+            : "Your hands are full.");
         return;
     }
 
@@ -605,7 +603,6 @@ void HandleTake(string[] parts)
     else if (fromGround)
         world.RemoveFromGround(room.Id, item);
 
-    var sheathed = player.SheathCurrentWeapon();
     if (sheathed != null)
         Console.WriteLine($"You sheath your {sheathed.Name}.");
 
@@ -654,6 +651,8 @@ void HandleBuy(string[] parts)
 
     var name = string.Join(' ', parts.Skip(1));
 
+    // A bought weapon goes straight into its own sheath — it never touches your hands, so there's
+    // nothing to make room for.
     var weapon = shop.Weapons.FirstOrDefault(w => w.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
     if (weapon != null)
     {
@@ -661,22 +660,29 @@ void HandleBuy(string[] parts)
             return;
 
         var bought = CloneWeapon(weapon);
-        var sheathed = player!.SheathCurrentWeapon();
-        player.SheathedWeapons.Add(bought);
-        Console.WriteLine(sheathed != null
-            ? $"You sheath your {sheathed.Name} and buy a {bought.Name} for {weapon.Value} gold. It's already in its sheath."
-            : $"You buy a {bought.Name} for {weapon.Value} gold. It's already in its sheath.");
+        player!.SheathedWeapons.Add(bought);
+        Console.WriteLine($"You buy a {bought.Name} for {weapon.Value} gold. It's already in its sheath.");
         return;
     }
 
+    // Unworn armor has to be held, though — refuse up front (before paying) if there'd be no room
+    // for it even after sheathing whatever's wielded.
     var armor = shop.Armor.FirstOrDefault(a => a.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
     if (armor != null)
     {
+        double needed = Math.Max(armor.Bulk, 1);
+        double handSpaceIfSheathed = player!.FreeHandBulk + (player.Weapon.IsUnarmed ? 0 : Math.Max(player.Weapon.Bulk, 1));
+        if (handSpaceIfSheathed < needed)
+        {
+            Console.WriteLine("Your hands are full.");
+            return;
+        }
+
         if (!TryPay(armor.Value))
             return;
 
         var bought = CloneArmor(armor);
-        var sheathed = player!.SheathCurrentWeapon();
+        var sheathed = player.FreeHandBulk < needed ? player.SheathCurrentWeapon() : null;
         player.HeldArmor.Add(bought);
         Console.WriteLine(sheathed != null
             ? $"You sheath your {sheathed.Name} and buy a {bought.Name} for {armor.Value} gold. You are holding it."
@@ -684,6 +690,7 @@ void HandleBuy(string[] parts)
         return;
     }
 
+    // The backpack goes straight onto your back — no hand space needed either.
     if (shop.Backpack != null && shop.Backpack.Name.Contains(name, StringComparison.OrdinalIgnoreCase))
     {
         if (player!.Backpack != null)
@@ -695,11 +702,8 @@ void HandleBuy(string[] parts)
         if (!TryPay(shop.Backpack.Value))
             return;
 
-        var sheathed = player.SheathCurrentWeapon();
         player.Backpack = CloneBackpack(shop.Backpack);
-        Console.WriteLine(sheathed != null
-            ? $"You sheath your {sheathed.Name} and buy a {player.Backpack.Name} for {shop.Backpack.Value} gold. You put it on."
-            : $"You buy a {player.Backpack.Name} for {shop.Backpack.Value} gold. You put it on.");
+        Console.WriteLine($"You buy a {player.Backpack.Name} for {shop.Backpack.Value} gold. You put it on.");
         return;
     }
 
@@ -761,13 +765,21 @@ void HandleSell(string[] parts)
         return;
     }
 
+    var held = player.HeldItems.FirstOrDefault(i => i.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+    if (held != null)
+    {
+        player.HeldItems.Remove(held);
+        Paid(held.Name, held.Value);
+        return;
+    }
+
     bool stillWorn = player.EquippedArmor.Any(a => a.Name.Contains(name, StringComparison.OrdinalIgnoreCase))
         || (!player.Weapon.IsUnarmed && player.Weapon.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
     Console.WriteLine(stillWorn ? "You'll need to remove or sheath that first." : "You don't have that.");
 
     void Paid(string itemName, int baseValue)
     {
-        int price = Math.Max(1, (int)Math.Round(baseValue * CombatConstants.ShopSellFraction));
+        int price = Math.Min(CombatConstants.MaxSellPrice, Math.Max(1, (int)Math.Round(baseValue * CombatConstants.ShopSellFraction)));
         player.AddGold(price);
         Console.WriteLine($"You sell {itemName} for {price} gold.");
     }
@@ -937,6 +949,7 @@ void HandleHands()
         held.Add(player.Weapon.Name);
     held.AddRange(player.EquippedArmor.Where(a => a.Slots.Contains(BodySlot.Shield)).Select(a => a.Name));
     held.AddRange(player.HeldArmor.Select(a => a.Name));
+    held.AddRange(player.HeldItems.Select(i => i.Name));
 
     Console.WriteLine(held.Count == 0
         ? "Your hands are empty."
@@ -965,8 +978,11 @@ void HandleInventory()
             Console.WriteLine($"  {armor.Name} ({string.Join('/', armor.Slots)})");
     }
 
-    if (player.HeldArmor.Count > 0)
-        Console.WriteLine("In hand (not worn): " + string.Join(", ", player.HeldArmor.Select(a => a.Name)));
+    if (player.HeldArmor.Count > 0 || player.HeldItems.Count > 0)
+    {
+        var heldNames = player.HeldArmor.Select(a => a.Name).Concat(player.HeldItems.Select(i => i.Name));
+        Console.WriteLine("In hand (not worn/stowed): " + string.Join(", ", heldNames));
+    }
 
     if (player.Backpack is { } backpack)
     {

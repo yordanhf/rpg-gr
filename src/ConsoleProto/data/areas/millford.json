@@ -9,17 +9,14 @@
       "description": "You stand in the middle of a broad cobbled square, worn smooth by generations of boots. A moss-ringed stone well sits at its heart. Timber-framed houses lean in on every side, and the road north leads back out through the village gate.",
       "exits": {
         "north": "world.millford_gate",
-        "west": "shop"
+        "west": "shop",
+        "south": "alley",
+        "east": "meadow"
       },
       "details": {
         "well": "The old stone well is ringed with moss. Cool air rises from its depths, and far below you can hear the faint drip of water.",
         "houses": "Crooked timber-framed houses, their shutters half closed. Smoke curls from most of the chimneys."
-      },
-      "spawns": [
-        "rat",
-        "deer",
-        "beast"
-      ]
+      }
     },
     {
       "id": "shop",
@@ -45,6 +42,40 @@
         ],
         "backpack": { "name": "Traveler's Pack", "capacity": 2, "value": 10 }
       }
+    },
+    {
+      "id": "alley",
+      "name": "Millford Back Alley",
+      "description": "A narrow alley behind the village houses, littered with broken crates and refuse. Something small keeps rustling in the shadows.",
+      "exits": {
+        "north": "square"
+      },
+      "spawns": [
+        "rat"
+      ]
+    },
+    {
+      "id": "meadow",
+      "name": "Millford Meadow",
+      "description": "A sunlit meadow just outside the village, tall grass swaying in the breeze. A dirt path continues east toward the treeline.",
+      "exits": {
+        "west": "square",
+        "east": "thicket"
+      },
+      "spawns": [
+        "deer"
+      ]
+    },
+    {
+      "id": "thicket",
+      "name": "Millford Thicket",
+      "description": "A dense thicket at the edge of the woods, brambles and shadow tangled together. This feels like the edge of somewhere wilder.",
+      "exits": {
+        "west": "meadow"
+      },
+      "spawns": [
+        "beast"
+      ]
     }
   ]
 }

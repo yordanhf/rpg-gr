@@ -31,6 +31,13 @@ public class CharacterSave
     public int Gold { get; init; }
 
     public required WeaponSave Weapon { get; init; }
+
+    /// The character's innate unarmed weapon (Fists) — separate from Weapon, since Weapon might be
+    /// a real one they're actively wielding when they save. Needed so SheathCurrentWeapon() has
+    /// somewhere to fall back to after a `continue`; null only for saves from before this existed
+    /// (they get a synthesized fallback instead, see ToCombatant).
+    public WeaponSave? UnarmedWeapon { get; init; }
+
     public List<WeaponSave> SheathedWeapons { get; init; } = new();
     public List<ArmorSave> Armor { get; init; } = new();
     public List<ArmorSave> HeldArmor { get; init; } = new();
@@ -75,6 +82,7 @@ public class CharacterSave
             Dodge = player.Dodge,
             Gold = player.Gold,
             Weapon = ToWeaponSave(player.Weapon),
+            UnarmedWeapon = player.UnarmedWeapon is { } uw ? ToWeaponSave(uw) : null,
             SheathedWeapons = player.SheathedWeapons.Select(ToWeaponSave).ToList(),
             Armor = player.EquippedArmor.Select(ToArmorSave).ToList(),
             HeldArmor = player.HeldArmor.Select(ToArmorSave).ToList(),
@@ -139,13 +147,18 @@ public class CharacterSave
             Attack = Attack,
             Defense = Defense,
             Dodge = Dodge,
-            Weapon = FromWeaponSave(Weapon),
+            // Set to the unarmed fallback first so Combatant captures it (see Combatant.Weapon),
+            // then overwritten below to whatever they actually had in hand when they saved.
+            Weapon = FromWeaponSave(UnarmedWeapon ?? SynthesizedFists),
             SheathedWeapons = SheathedWeapons.Select(FromWeaponSave).ToList(),
             EquippedArmor = Armor.Select(FromArmorSave).ToList(),
             HeldArmor = HeldArmor.Select(FromArmorSave).ToList(),
             Backpack = Backpack is { } bp ? new Backpack { Name = bp.Name, Capacity = bp.Capacity } : null,
             BackpackItems = BackpackItems.Select(i => new Item { Name = i.Name, Bulk = i.Bulk, Value = i.Value }).ToList()
         };
+
+        if (UnarmedWeapon == null || Weapon != UnarmedWeapon) // WeaponSave is a record: this compares values, not references
+            player.Weapon = FromWeaponSave(Weapon); // the real weapon they were actually holding, if different
 
         player.ResetHp();
         player.ResetMp();
@@ -154,6 +167,10 @@ public class CharacterSave
         player.RestoreGold(Gold);
         return player;
     }
+
+    /// Fallback for saves from before UnarmedWeapon existed — a generic, harmless "Fists".
+    private static readonly WeaponSave SynthesizedFists =
+        new("Fists", 0, 0, 0, 0, 1, true, CombatConstants.MaxDurability, CombatConstants.MaxDurability, false);
 }
 
 /// Where characters are kept. The prototype uses JSON files; a server would plug in a database (EF Core) here.

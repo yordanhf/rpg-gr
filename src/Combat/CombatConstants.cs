@@ -45,6 +45,8 @@ public static class CombatConstants
     public const double HandCapacity = 2;
 
     /// Selling to a shop pays this fraction of an item's Value (buying costs the full Value).
-    /// No price cap yet — that's still a pending balance decision.
     public const double ShopSellFraction = 0.25;
+
+    /// Nothing sells to a shop for more than this, regardless of Value — placeholder, per the dev's call.
+    public const int MaxSellPrice = 50;
 }
