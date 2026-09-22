@@ -4,6 +4,7 @@ using World;
 
 const int CorpseFadeSeconds = 30; // how long a corpse (and its loot-rights restriction) lasts
 const int RespawnTickSeconds = 600; // world heartbeat: every 10 minutes, due respawns (Combatant.RespawnTicks) go live
+const int RegenTickSeconds = 30; // passive HP/MP regen: +CombatConstants.RegenAmountPerTick every 30s
 const string HelpLine =
     "Commands: create, continue, look [target], north/south/east/west/up/down (n/s/e/w/u/d), kill <target>, shape [target], " +
     "bandage [target], wield <weapon|shield>, sheath [weapon], wear <armor>, remove <armor>, hands, i (or inventory), gold, xp, " +
@@ -22,6 +23,7 @@ Combatant? activeNpc = null; // the opponent of the current (or last) fight
 Direction? pendingMove = null; // a move typed mid-fight: it counts as fleeing, and happens once the fight actually ends
 
 _ = RunRespawnTicksAsync(); // runs for the whole process, independent of any player session
+_ = RunPlayerRegenAsync();
 
 Console.WriteLine(HelpLine);
 Console.WriteLine("Type 'create' for a new character, or 'continue' to resume a saved one.");
@@ -418,6 +420,27 @@ async Task RunRespawnTicksAsync()
         world.AdvanceRespawnTick();
         foreach (var room in world.Map.Areas.SelectMany(a => a.Rooms))
             room.Healer?.ResetCapacity();
+    }
+}
+
+// Passive regen: every RegenTickSeconds, the player quietly gets CombatConstants.RegenAmountPerTick
+// HP *and* MP back, on top of anything else (bandaging, the healer). Runs whether in combat or not —
+// the amount is small enough that it's not a meaningful escape valve mid-fight. Paused while bleeding
+// or dead (Heal() already no-ops off Alive; RecoverMp doesn't, so it's gated here too) — same as
+// nobody self-bandages, nobody self-regens out of a downed state either. No narration: it just nudges
+// the HP/MP prompt (LineEditor.Print with an empty write) so it stays live without spamming the log.
+async Task RunPlayerRegenAsync()
+{
+    while (true)
+    {
+        await Task.Delay(RegenTickSeconds * 1000);
+
+        if (player is { IsDown: false } p)
+        {
+            p.Heal(CombatConstants.RegenAmountPerTick);
+            p.RecoverMp(CombatConstants.RegenAmountPerTick);
+            LineEditor.Print(() => { });
+        }
     }
 }
 

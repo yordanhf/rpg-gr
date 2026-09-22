@@ -58,4 +58,8 @@ public static class CombatConstants
     /// Total HP+MP a healer can dispense (HealAmountPerUse per use, so this many / HealAmountPerUse
     /// uses) before running dry for the rest of the current world tick (see Healer.TryDispense).
     public const int HealerCapacityPerTick = 200;
+
+    /// Passive regen: this many HP *and* MP tick back on their own, on a timer the console prototype
+    /// drives (see RegenTickSeconds in Program.cs — pure real-time pacing, so it lives outside Combat).
+    public const int RegenAmountPerTick = 1;
 }
