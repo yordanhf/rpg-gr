@@ -9,23 +9,31 @@ internal static class LineEditor
     private static readonly object Gate = new();
     private static readonly List<string> History = new();
     private static readonly System.Text.StringBuilder Buffer = new();
+
+    // The prompt is a function, not a fixed string: it carries live values (HP/MP), so every redraw
+    // (e.g. a combat message arriving while sitting at the prompt) shows the current numbers, not
+    // whatever they were when ReadLine was first called. `_prompt` caches the last-drawn text, needed
+    // only to know how many characters to erase before drawing the next one.
+    private static Func<string> _promptProvider = () => "";
     private static string _prompt = "";
     private static bool _reading;
 
-    public static string? ReadLine(string prompt)
+    public static string? ReadLine(Func<string> promptProvider)
     {
         if (Console.IsInputRedirected)
         {
+            var prompt = promptProvider();
             Console.Write(prompt);
             return Console.ReadLine();
         }
 
         lock (Gate)
         {
-            _prompt = prompt;
+            _promptProvider = promptProvider;
+            _prompt = promptProvider();
             Buffer.Clear();
             _reading = true;
-            Console.Write(prompt);
+            Console.Write(_prompt);
         }
 
         int historyIndex = History.Count;
@@ -81,6 +89,8 @@ internal static class LineEditor
     }
 
     /// Runs a write to the console safely while the user may be mid-typing (called from the combat loop).
+    /// This is also the moment a stale HP/MP prompt gets refreshed: whatever changed HP (a hit landing)
+    /// is exactly what's being printed here, so re-fetching the prompt text picks up the new numbers.
     public static void Print(Action write)
     {
         lock (Gate)
@@ -91,13 +101,17 @@ internal static class LineEditor
             write();
 
             if (_reading)
+            {
+                _prompt = _promptProvider();
                 Console.Write(_prompt + Buffer);
+            }
         }
     }
 
     private static void Replace(string text)
     {
         ClearLine();
+        _prompt = _promptProvider();
         Buffer.Clear().Append(text);
         Console.Write(_prompt + Buffer);
     }
@@ -105,6 +119,7 @@ internal static class LineEditor
     private static void Redraw()
     {
         ClearLine();
+        _prompt = _promptProvider();
         Console.Write(_prompt + Buffer);
     }
 
