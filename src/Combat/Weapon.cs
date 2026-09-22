@@ -25,6 +25,9 @@ public class Weapon
     /// no sheath and can't be un-wielded, dropped, or handled by the inventory system.
     public bool IsUnarmed { get; init; }
 
+    /// Gold price at a shop (buying: full price; selling back: a fraction, see CombatConstants).
+    public int Value { get; init; }
+
     public int MaxDurability { get; init; } = CombatConstants.MaxDurability;
     public int Durability { get; private set; } = CombatConstants.MaxDurability;
 

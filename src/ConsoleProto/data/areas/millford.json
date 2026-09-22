@@ -8,7 +8,8 @@
       "name": "Millford Square",
       "description": "You stand in the middle of a broad cobbled square, worn smooth by generations of boots. A moss-ringed stone well sits at its heart. Timber-framed houses lean in on every side, and the road north leads back out through the village gate.",
       "exits": {
-        "north": "world.millford_gate"
+        "north": "world.millford_gate",
+        "west": "shop"
       },
       "details": {
         "well": "The old stone well is ringed with moss. Cool air rises from its depths, and far below you can hear the faint drip of water.",
@@ -19,6 +20,31 @@
         "deer",
         "beast"
       ]
+    },
+    {
+      "id": "shop",
+      "name": "Millford Trading Post",
+      "description": "A cramped shop crowded with secondhand gear. Weapons hang from pegs along one wall; a rack of well-worn armor lines the other. A tired-looking shopkeeper watches you from behind the counter.",
+      "exits": {
+        "east": "square"
+      },
+      "shop": {
+        "name": "Millford Trading Post",
+        "weapons": [
+          { "name": "Knife", "hit": 8, "damage": 6, "critChanceBonus": 0.001, "critPower": 10, "bulk": 1, "value": 8 },
+          { "name": "Dagger", "hit": 7, "damage": 7, "critChanceBonus": 0.002, "critPower": 15, "bulk": 1, "value": 10 },
+          { "name": "Short Sword", "hit": 10, "damage": 10, "critChanceBonus": 0.001, "critPower": 12, "bulk": 1, "value": 15 }
+        ],
+        "armor": [
+          { "name": "Rustic Leather Cap", "absorb": 3, "deflect": 2, "slots": ["Head"], "bulk": 0.5, "value": 4 },
+          { "name": "Rustic Leather Vest", "absorb": 6, "deflect": 3, "slots": ["Torso"], "bulk": 1, "value": 8 },
+          { "name": "Rustic Leather Bracers", "absorb": 3, "deflect": 2, "slots": ["Arms"], "bulk": 0.5, "value": 4 },
+          { "name": "Rustic Leather Leggings", "absorb": 4, "deflect": 2, "slots": ["Legs"], "bulk": 0.5, "value": 5 },
+          { "name": "Rustic Leather Boots", "absorb": 2, "deflect": 2, "slots": ["Feet"], "bulk": 0.5, "value": 3 },
+          { "name": "Wooden Shield", "absorb": 3, "deflect": 4, "slots": ["Shield"], "bulk": 1, "value": 6 }
+        ],
+        "backpack": { "name": "Traveler's Pack", "capacity": 2, "value": 10 }
+      }
     }
   ]
 }

@@ -1,5 +1,14 @@
 namespace World;
 
+/// A room's stock, if it has one. Buying gives the player a fresh copy — the stock itself never runs out.
+public class Shop
+{
+    public required string Name { get; init; }
+    public List<Combat.Weapon> Weapons { get; init; } = new();
+    public List<Combat.Armor> Armor { get; init; } = new();
+    public Combat.Backpack? Backpack { get; init; }
+}
+
 public class Room
 {
     /// Global id: "<areaId>.<roomId>", e.g. "world.millford_gate". Exits reference other rooms by this id.
@@ -19,6 +28,9 @@ public class Room
 
     /// Where a newly created character appears.
     public bool IsStart { get; init; }
+
+    /// Set if this room has a shop; null otherwise.
+    public Shop? Shop { get; init; }
 }
 
 public class Area

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using World;
 
 namespace ConsoleProto;
@@ -6,7 +7,11 @@ namespace ConsoleProto;
 /// Reads every data/areas/*.json (one file per area, rooms inside) into a WorldMap.
 internal static class WorldLoader
 {
-    private static readonly JsonSerializerOptions Options = new() { PropertyNameCaseInsensitive = true };
+    private static readonly JsonSerializerOptions Options = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter() }
+    };
     private static string AreasDir => Path.Combine(AppContext.BaseDirectory, "data", "areas");
 
     public static WorldMap Load()
@@ -38,7 +43,8 @@ internal static class WorldLoader
             Exits = ParseExits(file.Id, r, path),
             Details = r.Details ?? new(),
             Spawns = r.Spawns ?? new(),
-            IsStart = r.Start
+            IsStart = r.Start,
+            Shop = r.Shop
         }).ToList()
     };
 
@@ -65,5 +71,6 @@ internal static class WorldLoader
         Dictionary<string, string>? Exits,
         Dictionary<string, string>? Details,
         List<string>? Spawns,
-        bool Start);
+        bool Start,
+        Shop? Shop);
 }

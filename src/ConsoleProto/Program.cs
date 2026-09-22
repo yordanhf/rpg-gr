@@ -6,7 +6,7 @@ const int NpcRespawnSeconds = 30;
 const string HelpLine =
     "Commands: create, continue, look [target], north/south/east/west/up/down (n/s/e/w/u/d), kill <target>, shape [target], " +
     "bandage [target], wield <weapon|shield>, sheath [weapon], wear <armor>, remove <armor>, hands, i (or inventory), gold, " +
-    "simulate [rounds] [npc], reset, flee (or stop), listk, quit";
+    "list, buy <item>, simulate [rounds] [npc], reset, flee (or stop), listk, quit";
 
 var rng = new SystemRandomSource();
 var world = new WorldState(WorldLoader.Load(), CharacterLoader.LoadNpc);
@@ -97,6 +97,14 @@ while (true)
 
         case "hands":
             HandleHands();
+            break;
+
+        case "list":
+            HandleListShop();
+            break;
+
+        case "buy":
+            HandleBuy(parts);
             break;
 
         case "i":
@@ -473,6 +481,136 @@ void HandleShape(string[] parts)
     else
         Console.WriteLine("You're not in combat.");
 }
+
+void HandleListShop()
+{
+    if (!RequirePlayer())
+        return;
+
+    var shop = playerRoom?.Shop;
+    if (shop == null)
+    {
+        Console.WriteLine("There is nothing to buy here.");
+        return;
+    }
+
+    Console.WriteLine($"-- {shop.Name} --");
+    foreach (var weapon in shop.Weapons)
+        Console.WriteLine($"  {weapon.Name} - {weapon.Value} gold");
+    foreach (var armor in shop.Armor)
+        Console.WriteLine($"  {armor.Name} - {armor.Value} gold");
+    if (shop.Backpack != null)
+        Console.WriteLine($"  {shop.Backpack.Name} - {shop.Backpack.Value} gold");
+}
+
+// Buying always auto-sheaths whatever weapon you're currently holding, same as picking something up.
+void HandleBuy(string[] parts)
+{
+    if (!RequirePlayer())
+        return;
+
+    var shop = playerRoom?.Shop;
+    if (shop == null)
+    {
+        Console.WriteLine("There is nothing to buy here.");
+        return;
+    }
+
+    if (parts.Length < 2)
+    {
+        Console.WriteLine("Buy what? Try: list");
+        return;
+    }
+
+    var name = string.Join(' ', parts.Skip(1));
+
+    var weapon = shop.Weapons.FirstOrDefault(w => w.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+    if (weapon != null)
+    {
+        if (!TryPay(weapon.Value))
+            return;
+
+        var bought = CloneWeapon(weapon);
+        var sheathed = player!.SheathCurrentWeapon();
+        player.SheathedWeapons.Add(bought);
+        Console.WriteLine(sheathed != null
+            ? $"You sheath your {sheathed.Name} and buy a {bought.Name} for {weapon.Value} gold. It's already in its sheath."
+            : $"You buy a {bought.Name} for {weapon.Value} gold. It's already in its sheath.");
+        return;
+    }
+
+    var armor = shop.Armor.FirstOrDefault(a => a.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+    if (armor != null)
+    {
+        if (!TryPay(armor.Value))
+            return;
+
+        var bought = CloneArmor(armor);
+        var sheathed = player!.SheathCurrentWeapon();
+        player.HeldArmor.Add(bought);
+        Console.WriteLine(sheathed != null
+            ? $"You sheath your {sheathed.Name} and buy a {bought.Name} for {armor.Value} gold. You are holding it."
+            : $"You buy a {bought.Name} for {armor.Value} gold. You are holding it.");
+        return;
+    }
+
+    if (shop.Backpack != null && shop.Backpack.Name.Contains(name, StringComparison.OrdinalIgnoreCase))
+    {
+        if (player!.Backpack != null)
+        {
+            Console.WriteLine("You already have a backpack.");
+            return;
+        }
+
+        if (!TryPay(shop.Backpack.Value))
+            return;
+
+        var sheathed = player.SheathCurrentWeapon();
+        player.Backpack = CloneBackpack(shop.Backpack);
+        Console.WriteLine(sheathed != null
+            ? $"You sheath your {sheathed.Name} and buy a {player.Backpack.Name} for {shop.Backpack.Value} gold. You put it on."
+            : $"You buy a {player.Backpack.Name} for {shop.Backpack.Value} gold. You put it on.");
+        return;
+    }
+
+    Console.WriteLine("The shop doesn't sell that.");
+
+    bool TryPay(int cost)
+    {
+        if (player!.SpendGold(cost))
+            return true;
+
+        Console.WriteLine($"You can't afford that ({cost} gold; you have {player.Gold}).");
+        return false;
+    }
+}
+
+static Weapon CloneWeapon(Weapon w) => new()
+{
+    Name = w.Name,
+    Hit = w.Hit,
+    Damage = w.Damage,
+    CritChanceBonus = w.CritChanceBonus,
+    CritPower = w.CritPower,
+    CustomEmotes = w.CustomEmotes,
+    Bulk = w.Bulk,
+    IsUnarmed = w.IsUnarmed,
+    Value = w.Value,
+    MaxDurability = w.MaxDurability
+};
+
+static Armor CloneArmor(Armor a) => new()
+{
+    Name = a.Name,
+    Absorb = a.Absorb,
+    Deflect = a.Deflect,
+    Slots = new HashSet<BodySlot>(a.Slots),
+    Bulk = a.Bulk,
+    Value = a.Value,
+    MaxDurability = a.MaxDurability
+};
+
+static Backpack CloneBackpack(Backpack b) => new() { Name = b.Name, Capacity = b.Capacity, Value = b.Value };
 
 void HandleGold()
 {

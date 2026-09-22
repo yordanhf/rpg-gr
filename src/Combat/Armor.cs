@@ -17,6 +17,9 @@ public class Armor
     /// Space it takes in a backpack, or in hand while carried unworn (can be fractional).
     public required double Bulk { get; init; }
 
+    /// Gold price at a shop (buying: full price; selling back: a fraction, see CombatConstants).
+    public int Value { get; init; }
+
     public int MaxDurability { get; init; } = CombatConstants.MaxDurability;
     public int Durability { get; private set; } = CombatConstants.MaxDurability;
 

@@ -8,4 +8,7 @@ public class Backpack
 
     /// Total bulk it can hold (minimum 2 for the starter backpack; bigger ones may exist later).
     public required double Capacity { get; init; }
+
+    /// Gold price at a shop.
+    public int Value { get; init; }
 }

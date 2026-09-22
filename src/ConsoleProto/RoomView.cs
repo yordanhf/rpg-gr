@@ -23,6 +23,9 @@ internal static class RoomView
         var exits = room.Exits.Keys.OrderBy(d => d).Select(d => d.Label()).ToList();
         Console.WriteLine(exits.Count > 0 ? $"Exits: {string.Join(", ", exits)}." : "Exits: none.");
 
+        if (room.Shop != null)
+            Console.WriteLine("You can buy goods here. Try: list");
+
         foreach (var npc in npcs)
         {
             Console.WriteLine(npc.IsBleeding
