@@ -1,0 +1,10 @@
+{
+  "name": "Civilian",
+  "titles": [
+    { "minLevel": 1, "maxLevel": 4, "title": "Villager" },
+    { "minLevel": 5, "maxLevel": 9, "title": "Freeholder" },
+    { "minLevel": 10, "maxLevel": 14, "title": "Elder" },
+    { "minLevel": 15, "maxLevel": 19, "title": "Notable" },
+    { "minLevel": 20, "maxLevel": 20, "title": "Luminary" }
+  ]
+}

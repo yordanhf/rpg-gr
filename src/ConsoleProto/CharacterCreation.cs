@@ -34,11 +34,10 @@ internal static class CharacterCreation
             return null;
 
         var player = CharacterLoader.CreatePlayer(name, raceId);
-        var article = "aeiou".Contains(player.Race.Name[0], StringComparison.OrdinalIgnoreCase) ? "an" : "a";
 
         Console.WriteLine();
         Console.WriteLine("The world blurs, then sharpens around you...");
-        Console.WriteLine($"You are {name}, {article} {player.Race.Name.ToLowerInvariant()}. Your story begins.");
+        Console.WriteLine($"You are {name} the {player.Race.Name.ToLowerInvariant()} {player.Title}. Your story begins.");
         return player;
     }
 

@@ -195,7 +195,7 @@ void HandleContinue()
         return;
     }
 
-    var loaded = save.ToCombatant(CharacterLoader.GetRace, CharacterLoader.CreateStarterWeapon());
+    var loaded = save.ToCombatant(CharacterLoader.GetRace, CharacterLoader.GetProfession, CharacterLoader.CreateStarterWeapon());
     var room = world.Map.GetRoom(save.RoomId);
     if (room == null)
     {
@@ -214,6 +214,9 @@ void EnterWorld(Combatant character, Room room)
     activeEngine = null;
     activeNpc = null;
     pendingMove = null;
+
+    character.OnLevelUp += level =>
+        LineEditor.Print(() => Console.WriteLine($"You have reached level {level}! You are now known as {character.Title}."));
 
     Console.WriteLine();
     RoomView.Write(room, world);
@@ -280,7 +283,7 @@ void HandleLook(string[] parts)
 
     if (query.Equals("me", StringComparison.OrdinalIgnoreCase) || query.Equals("self", StringComparison.OrdinalIgnoreCase))
     {
-        Console.WriteLine($"You are {player!.Name}, {(("aeiou".Contains(player.Race.Name[0], StringComparison.OrdinalIgnoreCase)) ? "an" : "a")} {player.Race.Name.ToLowerInvariant()}.");
+        Console.WriteLine($"You are {player!.Name} the {player.Race.Name.ToLowerInvariant()} {player.Title}, level {player.Level}.");
         Console.WriteLine(DescribeCondition(player));
         return;
     }
@@ -853,7 +856,7 @@ void HandleExperience()
     if (!RequirePlayer())
         return;
 
-    Console.WriteLine($"You have {player!.Experience} experience.");
+    Console.WriteLine($"You have {player!.Experience} experience (level {player.Level}, {player.Title}).");
 }
 
 // One flat dose per call: CombatConstants.HealCostGold for HealAmountPerUse HP *and* the same MP —

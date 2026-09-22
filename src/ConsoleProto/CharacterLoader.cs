@@ -10,11 +10,12 @@ internal static class CharacterLoader
     private static readonly JsonSerializerOptions Options = new()
     {
         PropertyNameCaseInsensitive = true,
-        Converters = { new RaceByIdConverter(), new JsonStringEnumConverter() }
+        Converters = { new RaceByIdConverter(), new ProfessionByIdConverter(), new JsonStringEnumConverter() }
     };
 
-    // Race files describe the race itself, so they must not go through the id-to-race converter.
+    // Race/profession files describe the thing itself, so they must not go through the id converters.
     private static readonly JsonSerializerOptions RaceOptions = new() { PropertyNameCaseInsensitive = true };
+    private static readonly JsonSerializerOptions ProfessionOptions = new() { PropertyNameCaseInsensitive = true };
 
     private static string DataDir => Path.Combine(AppContext.BaseDirectory, "data");
 
@@ -91,6 +92,18 @@ internal static class CharacterLoader
         return race;
     }
 
+    public static Profession GetProfession(string id)
+    {
+        var path = Path.Combine(DataDir, "professions", $"{id.ToLowerInvariant()}.json");
+        if (!File.Exists(path))
+            throw new InvalidDataException($"Unknown profession '{id}' (expected {path})");
+
+        var profession = JsonSerializer.Deserialize<Profession>(File.ReadAllText(path), ProfessionOptions)
+            ?? throw new InvalidDataException($"Could not load profession from {path}");
+        profession.Id = id.ToLowerInvariant();
+        return profession;
+    }
+
     private static Combatant LoadFrom(string path)
     {
         var json = File.ReadAllText(path);
@@ -109,5 +122,16 @@ internal static class CharacterLoader
 
         public override void Write(Utf8JsonWriter writer, Race value, JsonSerializerOptions options) =>
             writer.WriteStringValue(value.Name.ToLowerInvariant());
+    }
+
+    /// Character JSON refers to a profession by id ("profession": "civilian"); resolves it to
+    /// data/professions/civilian.json.
+    private sealed class ProfessionByIdConverter : JsonConverter<Profession>
+    {
+        public override Profession Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            GetProfession(reader.GetString() ?? throw new JsonException("Profession id must be a string."));
+
+        public override void Write(Utf8JsonWriter writer, Profession value, JsonSerializerOptions options) =>
+            writer.WriteStringValue(value.Id);
     }
 }

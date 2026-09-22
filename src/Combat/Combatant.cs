@@ -29,6 +29,15 @@ public class Combatant
     public bool IsPlayer { get; init; }
 
     public Race Race { get; init; } = Race.None;
+    public Profession Profession { get; init; } = Profession.None;
+
+    public int Level { get; private set; } = 1;
+
+    /// Fires with the new level each time one is gained (possibly several times in a row from one
+    /// big XP award). A presentation layer uses this to announce it — Combat stays silent otherwise.
+    public event Action<int>? OnLevelUp;
+
+    public string Title => Profession.TitleFor(Level);
 
     private Weapon _weapon = null!;
     private Weapon? _unarmedWeapon;
@@ -122,13 +131,34 @@ public class Combatant
     /// Sets the gold balance read back from a save file.
     public void RestoreGold(int amount) => Gold = Math.Max(0, amount);
 
-    /// Not tied to leveling yet — just accumulates. Irrelevant for NPCs.
+    /// Irrelevant for NPCs — only the player accumulates this.
     public int Experience { get; private set; }
 
-    public void AddExperience(int amount) => Experience += Math.Max(0, amount);
+    public void AddExperience(int amount)
+    {
+        Experience += Math.Max(0, amount);
+        TryLevelUp();
+    }
 
-    /// Sets the experience total read back from a save file.
+    /// Sets the experience total read back from a save file. Deliberately doesn't re-check leveling —
+    /// a loaded character's Level is restored separately (RestoreLevel) as the source of truth, since
+    /// re-deriving it here could disagree if the stat-average requirement changes in a future update.
     public void RestoreExperience(int amount) => Experience = Math.Max(0, amount);
+
+    /// Sets the level read back from a save file, bypassing the XP/stat-average gate (they already
+    /// earned it) and without firing OnLevelUp (nobody's listening yet at load time).
+    public void RestoreLevel(int level) => Level = Math.Max(1, level);
+
+    private void TryLevelUp()
+    {
+        double statAverage = (Strength + Constitution + Agility + Coordination + Intelligence) / 5.0;
+
+        while (Experience >= Leveling.ExperienceRequired(Level + 1) && statAverage >= Leveling.RequiredStatAverage(Level + 1))
+        {
+            Level++;
+            OnLevelUp?.Invoke(Level);
+        }
+    }
 
     /// Incremental HP recovery (unlike RestoreHp, which sets an absolute value for save loading).
     /// A no-op while bleeding or dead — those need Stabilize/reviving, not a top-up.

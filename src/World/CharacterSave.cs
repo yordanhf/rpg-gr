@@ -17,7 +17,10 @@ public class CharacterSave
 
     public required string Name { get; init; }
     public required string RaceId { get; init; }
+    public required string ProfessionId { get; init; }
     public required string RoomId { get; init; }
+
+    public int Level { get; init; } = 1;
 
     public required int MaxHp { get; init; }
     public required int CurrentHp { get; init; }
@@ -49,7 +52,9 @@ public class CharacterSave
         {
             Name = player.Name,
             RaceId = player.Race.Id,
+            ProfessionId = player.Profession.Id,
             RoomId = roomId,
+            Level = player.Level,
             MaxHp = player.MaxHp,
             CurrentHp = hp,
             MaxMp = player.MaxMp,
@@ -70,13 +75,14 @@ public class CharacterSave
 
     /// `startingWeapon` is a fresh copy of the game's default unarmed weapon (Fists) — a returning
     /// character always starts bare-handed and bare-armored, same as a brand new one.
-    public Combatant ToCombatant(Func<string, Race> findRace, Weapon startingWeapon)
+    public Combatant ToCombatant(Func<string, Race> findRace, Func<string, Profession> findProfession, Weapon startingWeapon)
     {
         var player = new Combatant
         {
             Name = Name,
             IsPlayer = true,
             Race = findRace(RaceId),
+            Profession = findProfession(ProfessionId),
             MaxHp = MaxHp,
             MaxMp = MaxMp,
             Strength = Strength,
@@ -97,6 +103,7 @@ public class CharacterSave
         player.RestoreMp(CurrentMp);
         player.RestoreGold(Gold);
         player.RestoreExperience(Experience);
+        player.RestoreLevel(Level);
         return player;
     }
 }

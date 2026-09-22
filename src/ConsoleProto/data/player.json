@@ -2,6 +2,7 @@
   "name": "You",
   "isPlayer": true,
   "race": "human",
+  "profession": "civilian",
   "maxHp": 50,
   "maxMp": 50,
   "strength": 20,
