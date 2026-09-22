@@ -26,6 +26,12 @@ internal static class RoomView
         if (room.Shop != null)
             Console.WriteLine("You can buy goods here. Try: list");
 
+        if (room.Healer != null)
+            Console.WriteLine("You can be healed here. Try: heal");
+
+        if (room.Trainer != null)
+            Console.WriteLine("You can train here, and advance a level once you qualify. Try: train, levelup");
+
         foreach (var npc in world.NpcsIn(room))
         {
             Console.WriteLine(npc.IsBleeding

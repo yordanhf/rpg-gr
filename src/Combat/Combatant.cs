@@ -89,15 +89,17 @@ public class Combatant
     public void GrantLootRights(string name) => LootRights.Add(name);
 
     // Base stats and skills, normally 0-100 (buffs can push the effective value up to CombatConstants.MaxEffectiveStat).
-    public required double Strength { get; init; }
-    public required double Constitution { get; init; }
-    public required double Agility { get; init; }
-    public required double Coordination { get; init; }
-    public required double Intelligence { get; init; }
-    public required double Aim { get; init; }
-    public required double Attack { get; init; }
-    public required double Defense { get; init; }
-    public required double Dodge { get; init; }
+    // Mutable (not init-only) because training raises them permanently during play — go through
+    // TryTrain for that; a plain assignment (e.g. loading a save) skips the gold/cap checks on purpose.
+    public required double Strength { get; set; }
+    public required double Constitution { get; set; }
+    public required double Agility { get; set; }
+    public required double Coordination { get; set; }
+    public required double Intelligence { get; set; }
+    public required double Aim { get; set; }
+    public required double Attack { get; set; }
+    public required double Defense { get; set; }
+    public required double Dodge { get; set; }
 
     public LifeState State { get; private set; } = LifeState.Alive;
     public int BleedRoundsLeft { get; private set; }
@@ -134,11 +136,8 @@ public class Combatant
     /// Irrelevant for NPCs — only the player accumulates this.
     public int Experience { get; private set; }
 
-    public void AddExperience(int amount)
-    {
-        Experience += Math.Max(0, amount);
-        TryLevelUp();
-    }
+    /// Doesn't level up by itself anymore — that only happens at a trainer, see TryLevelUp.
+    public void AddExperience(int amount) => Experience += Math.Max(0, amount);
 
     /// Sets the experience total read back from a save file. Deliberately doesn't re-check leveling —
     /// a loaded character's Level is restored separately (RestoreLevel) as the source of truth, since
@@ -149,15 +148,73 @@ public class Combatant
     /// earned it) and without firing OnLevelUp (nobody's listening yet at load time).
     public void RestoreLevel(int level) => Level = Math.Max(1, level);
 
-    private void TryLevelUp()
-    {
-        double statAverage = (Strength + Constitution + Agility + Coordination + Intelligence) / 5.0;
+    /// Round levels (5, 10, 15, 20) need something more than XP/stats to get past — a quest system
+    /// that doesn't exist yet, so for now this is just a hard wall.
+    private static bool IsMilestoneLevel(int level) => level % 5 == 0;
 
-        while (Experience >= Leveling.ExperienceRequired(Level + 1) && statAverage >= Leveling.RequiredStatAverage(Level + 1))
+    /// Advances exactly one level — call it again for another, once eligible again. Only ever called
+    /// from a trainer command (Combat itself doesn't enforce "must be at a trainer"; that's on the
+    /// caller, since "presence in a room" isn't a concept this library knows about).
+    public bool TryLevelUp(out string? error)
+    {
+        int nextLevel = Level + 1;
+
+        if (IsMilestoneLevel(Level))
         {
-            Level++;
-            OnLevelUp?.Invoke(Level);
+            error = $"You need to complete a special task before advancing past level {Level} (not implemented yet).";
+            return false;
         }
+
+        if (Experience < Leveling.ExperienceRequired(nextLevel))
+        {
+            error = "You don't have enough experience yet.";
+            return false;
+        }
+
+        double statAverage = (Strength + Constitution + Agility + Coordination + Intelligence) / 5.0;
+        if (statAverage < Leveling.RequiredStatAverage(nextLevel))
+        {
+            error = "Your stats aren't high enough yet.";
+            return false;
+        }
+
+        Level = nextLevel;
+        OnLevelUp?.Invoke(Level);
+        error = null;
+        return true;
+    }
+
+    /// The highest a stat/skill can be trained to right now (Training.MaxTrainableValue at this level).
+    public int TrainingCap => Training.MaxTrainableValue(Level);
+
+    /// Gold cost to train `stat` up by `points`, from its current (rounded) value.
+    public int TrainingCostFor(StatType stat, int points) =>
+        Training.CostForRange((int)GetBaseStat(stat), (int)GetBaseStat(stat) + points);
+
+    /// Fails (refuses, nothing changes) if this would exceed TrainingCap, or gold is short. `error`
+    /// explains which.
+    public bool TryTrain(StatType stat, int points, out string? error)
+    {
+        int current = (int)GetBaseStat(stat);
+        int target = current + points;
+        int cap = TrainingCap;
+
+        if (target > cap)
+        {
+            error = $"You can't train that past {cap} at your level.";
+            return false;
+        }
+
+        int cost = Training.CostForRange(current, target);
+        if (!SpendGold(cost))
+        {
+            error = $"That would cost {cost} gold — you don't have enough.";
+            return false;
+        }
+
+        SetBaseStat(stat, target);
+        error = null;
+        return true;
     }
 
     /// Incremental HP recovery (unlike RestoreHp, which sets an absolute value for save loading).
@@ -360,6 +417,9 @@ public class Combatant
         return Math.Clamp(baseValue + modifierSum, 0, CombatConstants.MaxEffectiveStat);
     }
 
+    /// The raw base value (no race %, no buffs) — what training actually reads and changes.
+    public double BaseStat(StatType stat) => GetBaseStat(stat);
+
     private double GetBaseStat(StatType stat) => stat switch
     {
         StatType.Strength => Strength,
@@ -373,6 +433,23 @@ public class Combatant
         StatType.Dodge => Dodge,
         _ => throw new ArgumentOutOfRangeException(nameof(stat))
     };
+
+    private void SetBaseStat(StatType stat, double value)
+    {
+        switch (stat)
+        {
+            case StatType.Strength: Strength = value; break;
+            case StatType.Constitution: Constitution = value; break;
+            case StatType.Agility: Agility = value; break;
+            case StatType.Coordination: Coordination = value; break;
+            case StatType.Intelligence: Intelligence = value; break;
+            case StatType.Aim: Aim = value; break;
+            case StatType.Attack: Attack = value; break;
+            case StatType.Defense: Defense = value; break;
+            case StatType.Dodge: Dodge = value; break;
+            default: throw new ArgumentOutOfRangeException(nameof(stat));
+        }
+    }
 
     public void AddModifier(StatModifier modifier) => _modifiers.Add(modifier);
 

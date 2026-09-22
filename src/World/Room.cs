@@ -35,6 +35,16 @@ public class Healer
     public void ResetCapacity() => _capacityRemaining = Combat.CombatConstants.HealerCapacityPerTick;
 }
 
+/// A room with a trainer: raises any of the 9 base stats/skills for gold (Combat.Training), and is
+/// also the only place a character can actually apply a level-up (Combatant.TryLevelUp) once they
+/// qualify — leveling doesn't happen automatically during play. Trains "civilian" only for now;
+/// ProfessionId is here so profession-specific trainers can reuse this same class later.
+public class Trainer
+{
+    public required string Name { get; init; }
+    public string ProfessionId { get; init; } = "civilian";
+}
+
 public class Room
 {
     /// Global id: "<areaId>.<roomId>", e.g. "world.millford_gate". Exits reference other rooms by this id.
@@ -60,6 +70,9 @@ public class Room
 
     /// Set if this room has a healer; null otherwise.
     public Healer? Healer { get; init; }
+
+    /// Set if this room has a trainer; null otherwise.
+    public Trainer? Trainer { get; init; }
 }
 
 public class Area

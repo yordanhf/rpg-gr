@@ -12,7 +12,8 @@
         "west": "shop",
         "south": "alley",
         "east": "meadow",
-        "up": "healer"
+        "up": "healer",
+        "down": "trainer"
       },
       "details": {
         "well": "The old stone well is ringed with moss. Cool air rises from its depths, and far below you can hear the faint drip of water.",
@@ -53,6 +54,18 @@
       },
       "healer": {
         "name": "Millford Healer's House"
+      }
+    },
+    {
+      "id": "trainer",
+      "name": "Millford Training Yard",
+      "description": "A dusty yard below the square, lined with weathered practice posts and worn sparring dummies. A veteran trainer sizes you up as you arrive.",
+      "exits": {
+        "up": "square"
+      },
+      "trainer": {
+        "name": "Millford Training Yard",
+        "professionId": "civilian"
       }
     },
     {

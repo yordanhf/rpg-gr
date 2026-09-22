@@ -45,7 +45,8 @@ internal static class WorldLoader
             Spawns = r.Spawns ?? new(),
             IsStart = r.Start,
             Shop = r.Shop,
-            Healer = r.Healer
+            Healer = r.Healer,
+            Trainer = r.Trainer
         }).ToList()
     };
 
@@ -74,5 +75,6 @@ internal static class WorldLoader
         List<string>? Spawns,
         bool Start,
         Shop? Shop,
-        Healer? Healer);
+        Healer? Healer,
+        Trainer? Trainer);
 }

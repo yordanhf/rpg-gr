@@ -7,7 +7,8 @@ const int RespawnTickSeconds = 600; // world heartbeat: every 10 minutes, due re
 const string HelpLine =
     "Commands: create, continue, look [target], north/south/east/west/up/down (n/s/e/w/u/d), kill <target>, shape [target], " +
     "bandage [target], wield <weapon|shield>, sheath [weapon], wear <armor>, remove <armor>, hands, i (or inventory), gold, xp, " +
-    "take/get/loot <item>, list, buy <item>, sell <item>, heal, simulate [rounds] [npc], reset, flee (or stop), listk, quit";
+    "score, take/get/loot <item>, list, buy <item>, sell <item>, heal, train [stat] [amount], levelup, " +
+    "simulate [rounds] [npc], reset, flee (or stop), listk, quit";
 
 var rng = new SystemRandomSource();
 var world = new WorldState(WorldLoader.Load(), CharacterLoader.LoadNpc);
@@ -90,6 +91,18 @@ while (true)
 
         case "heal":
             HandleHeal();
+            break;
+
+        case "score":
+            HandleScore();
+            break;
+
+        case "train":
+            HandleTrain(parts);
+            break;
+
+        case "levelup":
+            HandleLevelUp();
             break;
 
         case "wield":
@@ -311,6 +324,13 @@ void HandleLook(string[] parts)
     if (groundItem != null)
     {
         Console.WriteLine($"{Text.Cap(groundItem.Name)}. You could take it.");
+        return;
+    }
+
+    if (room.Trainer != null && (query.Equals("trainer", StringComparison.OrdinalIgnoreCase)
+        || room.Trainer.Name.Contains(query, StringComparison.OrdinalIgnoreCase)))
+    {
+        ShowTrainingMenu(room.Trainer);
         return;
     }
 
@@ -898,6 +918,130 @@ void HandleHeal()
 
     Console.WriteLine($"The healer tends to you for {CombatConstants.HealCostGold} gold. " +
         $"You feel {CombatConstants.HealAmountPerUse} HP and {CombatConstants.HealAmountPerUse} MP better.");
+}
+
+void HandleScore()
+{
+    if (!RequirePlayer())
+        return;
+
+    var p = player!;
+    Console.WriteLine($"{p.Name} the {p.Race.Name.ToLowerInvariant()} {p.Title}, level {p.Level}");
+    Console.WriteLine($"Experience: {p.Experience} ({Leveling.ExperienceRequired(p.Level + 1)} needed for level {p.Level + 1})");
+    Console.WriteLine($"HP: {p.CurrentHp}/{p.MaxHp}   MP: {p.CurrentMp}/{p.MaxMp}   Gold: {p.Gold}");
+    Console.WriteLine("Stats:");
+    Console.WriteLine($"  Strength:     {p.BaseStat(StatType.Strength):0.#}");
+    Console.WriteLine($"  Constitution: {p.BaseStat(StatType.Constitution):0.#}");
+    Console.WriteLine($"  Agility:      {p.BaseStat(StatType.Agility):0.#}");
+    Console.WriteLine($"  Coordination: {p.BaseStat(StatType.Coordination):0.#}");
+    Console.WriteLine($"  Intelligence: {p.BaseStat(StatType.Intelligence):0.#}");
+    Console.WriteLine("Skills:");
+    Console.WriteLine($"  Aim:          {p.BaseStat(StatType.Aim):0.#}");
+    Console.WriteLine($"  Attack:       {p.BaseStat(StatType.Attack):0.#}");
+    Console.WriteLine($"  Defense:      {p.BaseStat(StatType.Defense):0.#}");
+    Console.WriteLine($"  Dodge:        {p.BaseStat(StatType.Dodge):0.#}");
+}
+
+// `train` alone shows the menu (also reachable via `look <trainer>`); `train <stat> [amount]`
+// (amount defaults to 1) actually spends the gold, per Combat.Training's per-point pricing.
+void HandleTrain(string[] parts)
+{
+    if (!RequirePlayer())
+        return;
+
+    var trainer = playerRoom?.Trainer;
+    if (trainer == null)
+    {
+        Console.WriteLine("There is no trainer here.");
+        return;
+    }
+
+    if (parts.Length < 2)
+    {
+        ShowTrainingMenu(trainer);
+        return;
+    }
+
+    if (!TryParseStat(parts[1], out var stat, out var displayName))
+    {
+        Console.WriteLine("You can't train that. Try: train");
+        return;
+    }
+
+    int amount = 1;
+    if (parts.Length >= 3 && (!int.TryParse(parts[2], out amount) || amount <= 0))
+    {
+        Console.WriteLine("Usage: train <stat> [amount]");
+        return;
+    }
+
+    if (!player!.TryTrain(stat, amount, out var error))
+    {
+        Console.WriteLine(error);
+        return;
+    }
+
+    Console.WriteLine($"The trainer works with you on {displayName}. It's now {player.BaseStat(stat):0.#}.");
+}
+
+void HandleLevelUp()
+{
+    if (!RequirePlayer())
+        return;
+
+    if (playerRoom?.Trainer == null)
+    {
+        Console.WriteLine("There is no trainer here.");
+        return;
+    }
+
+    if (!player!.TryLevelUp(out var error))
+        Console.WriteLine(error);
+    // On success, the OnLevelUp subscription set up in EnterWorld already announces it.
+}
+
+void ShowTrainingMenu(Trainer trainer)
+{
+    Console.WriteLine($"-- {trainer.Name} --");
+    Console.WriteLine($"Training cap at level {player!.Level}: {player.TrainingCap} per stat/skill.");
+    Console.WriteLine("Stats:");
+    PrintTrainLine(StatType.Strength, "Strength");
+    PrintTrainLine(StatType.Constitution, "Constitution");
+    PrintTrainLine(StatType.Agility, "Agility");
+    PrintTrainLine(StatType.Coordination, "Coordination");
+    PrintTrainLine(StatType.Intelligence, "Intelligence");
+    Console.WriteLine("Skills:");
+    PrintTrainLine(StatType.Aim, "Aim");
+    PrintTrainLine(StatType.Attack, "Attack");
+    PrintTrainLine(StatType.Defense, "Defense");
+    PrintTrainLine(StatType.Dodge, "Dodge");
+    Console.WriteLine("Try: train <name> [amount]");
+
+    void PrintTrainLine(StatType stat, string name)
+    {
+        int current = (int)player.BaseStat(stat);
+        int cap = player.TrainingCap;
+        Console.WriteLine(current >= cap
+            ? $"  {name,-13} {current} (maxed for your level)"
+            : $"  {name,-13} {current} -> next point costs {player.TrainingCostFor(stat, 1)} gold (cap {cap})");
+    }
+}
+
+static bool TryParseStat(string text, out StatType stat, out string displayName)
+{
+    switch (text.ToLowerInvariant())
+    {
+        case "strength": case "str": stat = StatType.Strength; displayName = "Strength"; return true;
+        case "constitution": case "con": stat = StatType.Constitution; displayName = "Constitution"; return true;
+        case "agility": case "agi": stat = StatType.Agility; displayName = "Agility"; return true;
+        case "coordination": case "coord": stat = StatType.Coordination; displayName = "Coordination"; return true;
+        case "intelligence": case "int": stat = StatType.Intelligence; displayName = "Intelligence"; return true;
+        case "aim": stat = StatType.Aim; displayName = "Aim"; return true;
+        case "attack": stat = StatType.Attack; displayName = "Attack"; return true;
+        case "defense": stat = StatType.Defense; displayName = "Defense"; return true;
+        case "dodge": stat = StatType.Dodge; displayName = "Dodge"; return true;
+        default: stat = default; displayName = ""; return false;
+    }
 }
 
 // Works for a sheathed weapon (draws it) or a held shield (readies it) — whichever matches the name.
