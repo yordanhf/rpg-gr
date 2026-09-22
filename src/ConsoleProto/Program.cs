@@ -27,7 +27,8 @@ Console.WriteLine("Type 'create' for a new character, or 'continue' to resume a 
 
 while (true)
 {
-    var input = LineEditor.ReadLine("> ");
+    var prompt = player != null ? $"HP: {player.CurrentHp}  MP: {player.CurrentMp} > " : "> ";
+    var input = LineEditor.ReadLine(prompt);
     if (input == null)
     {
         SaveCharacter(); // input closed (Ctrl+Z / end of pipe): same as quit
