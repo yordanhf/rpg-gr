@@ -185,7 +185,7 @@ void HandleContinue()
         return;
     }
 
-    var loaded = save.ToCombatant(CharacterLoader.GetRace);
+    var loaded = save.ToCombatant(CharacterLoader.GetRace, CharacterLoader.CreateStarterWeapon());
     var room = world.Map.GetRoom(save.RoomId);
     if (room == null)
     {
@@ -217,6 +217,12 @@ void SaveCharacter()
 
     store.Save(CharacterSave.From(player, playerRoom.Id));
     Console.WriteLine($"{player.Name} has been saved.");
+
+    // Only gold persists — gear left unsold at quit is simply gone (see CharacterSave's doc comment).
+    bool hasGear = !player.Weapon.IsUnarmed || player.SheathedWeapons.Count > 0 || player.EquippedArmor.Count > 0
+        || player.HeldArmor.Count > 0 || player.HeldItems.Count > 0 || player.Backpack != null;
+    if (hasGear)
+        Console.WriteLine("(Your gear isn't saved — sell it before you go next time, or it's gone.)");
 }
 
 bool RequirePlayer()

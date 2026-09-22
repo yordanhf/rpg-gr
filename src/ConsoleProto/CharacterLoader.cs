@@ -32,6 +32,15 @@ internal static class CharacterLoader
         return player;
     }
 
+    /// A fresh copy of the game's default unarmed weapon (Fists), read from data/player.json.
+    /// Used to re-arm a returning character bare-handed — see CharacterSave's persistence note.
+    public static Weapon CreateStarterWeapon()
+    {
+        var node = JsonNode.Parse(File.ReadAllText(Path.Combine(DataDir, "player.json")))!.AsObject();
+        return node["weapon"].Deserialize<Weapon>(Options)
+            ?? throw new InvalidDataException("Could not read the starter weapon from data/player.json");
+    }
+
     /// Races a new character can pick (id = file name), alphabetical.
     public static IReadOnlyList<(string Id, Race Race)> ListPlayableRaces()
     {
