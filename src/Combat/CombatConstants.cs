@@ -50,6 +50,12 @@ public static class CombatConstants
     /// Nothing sells to a shop for more than this, regardless of Value — placeholder, per the dev's call.
     public const int MaxSellPrice = 50;
 
-    /// A healer restores this many HP *and* this many MP per gold spent, at the same time.
-    public const int HealHpMpPerGold = 2;
+    /// One healer visit: this many gold buys this many HP *and* this many MP at once — a flat dose,
+    /// not "heal me to full". Repeat (and pay again) for more.
+    public const int HealCostGold = 10;
+    public const int HealAmountPerUse = 20;
+
+    /// Total HP+MP a healer can dispense (HealAmountPerUse per use, so this many / HealAmountPerUse
+    /// uses) before running dry for the rest of the current world tick (see Healer.TryDispense).
+    public const int HealerCapacityPerTick = 200;
 }

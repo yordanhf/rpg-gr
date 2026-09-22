@@ -9,10 +9,30 @@ public class Shop
     public Combat.Backpack? Backpack { get; init; }
 }
 
-/// A room with a healer — heals HP and MP together at CombatConstants.HealHpMpPerGold each, for gold.
+/// A room with a healer. Each use is a flat CombatConstants.HealCostGold for
+/// CombatConstants.HealAmountPerUse HP *and* the same amount of MP — not "heal me to full", just one
+/// dose at a time. The healer only has so much in them per world tick (CombatConstants.
+/// HealerCapacityPerTick, shared across everyone using this healer) — once spent, they need the next
+/// tick to recover, same 10-minute heartbeat as NPC respawns (see Program.cs).
 public class Healer
 {
     public required string Name { get; init; }
+
+    private int _capacityRemaining = Combat.CombatConstants.HealerCapacityPerTick;
+
+    /// Spends `amount` of capacity if there's enough left. Returns false (refuses, nothing changes)
+    /// if the healer is tapped out for this tick.
+    public bool TryDispense(int amount)
+    {
+        if (amount > _capacityRemaining)
+            return false;
+
+        _capacityRemaining -= amount;
+        return true;
+    }
+
+    /// Called once per world tick.
+    public void ResetCapacity() => _capacityRemaining = Combat.CombatConstants.HealerCapacityPerTick;
 }
 
 public class Room

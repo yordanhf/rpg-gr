@@ -384,14 +384,16 @@ async Task FadeCorpseAsync(string roomId, Corpse corpse)
     world.FadeCorpse(roomId, corpse);
 }
 
-// The world's heartbeat: every RespawnTickSeconds, whichever pending respawns are due go live.
-// Runs for the whole process — NPCs keep respawning even between player sessions.
+// The world's heartbeat: every RespawnTickSeconds, whichever pending respawns are due go live, and
+// every healer's spent capacity comes back. Runs for the whole process — independent of any session.
 async Task RunRespawnTicksAsync()
 {
     while (true)
     {
         await Task.Delay(RespawnTickSeconds * 1000);
         world.AdvanceRespawnTick();
+        foreach (var room in world.Map.Areas.SelectMany(a => a.Rooms))
+            room.Healer?.ResetCapacity();
     }
 }
 
@@ -854,43 +856,45 @@ void HandleExperience()
     Console.WriteLine($"You have {player!.Experience} experience.");
 }
 
-// Heals HP and MP together, CombatConstants.HealHpMpPerGold each per gold. Charges only for the
-// larger of the two deficits — the smaller one gets topped off for free alongside it.
+// One flat dose per call: CombatConstants.HealCostGold for HealAmountPerUse HP *and* the same MP —
+// not "heal me to full". Call it again (and pay again) for more, as long as the healer isn't tapped
+// out for this world tick (Healer.TryDispense).
 void HandleHeal()
 {
     if (!RequirePlayer() || !PlayerCanAct())
         return;
 
-    if (playerRoom?.Healer == null)
+    var healer = playerRoom?.Healer;
+    if (healer == null)
     {
         Console.WriteLine("There is no healer here.");
         return;
     }
 
-    int hpMissing = player!.MaxHp - player.CurrentHp;
-    int mpMissing = player.MaxMp - player.CurrentMp;
-    if (hpMissing <= 0 && mpMissing <= 0)
+    if (player!.CurrentHp >= player.MaxHp && player.CurrentMp >= player.MaxMp)
     {
         Console.WriteLine("You are already at full health and mana.");
         return;
     }
 
-    int neededGold = (int)Math.Ceiling(Math.Max(hpMissing, mpMissing) / (double)CombatConstants.HealHpMpPerGold);
-    int spend = Math.Min(neededGold, player.Gold);
-    if (spend <= 0)
+    if (player.Gold < CombatConstants.HealCostGold)
     {
-        Console.WriteLine("You don't have any gold to pay for healing.");
+        Console.WriteLine($"The healer charges {CombatConstants.HealCostGold} gold a treatment — you don't have enough.");
         return;
     }
 
-    player.SpendGold(spend);
-    int healed = spend * CombatConstants.HealHpMpPerGold;
-    player.Heal(healed);
-    player.RecoverMp(healed);
+    if (!healer.TryDispense(CombatConstants.HealAmountPerUse))
+    {
+        Console.WriteLine("The healer is worn out for now — come back after they've had time to rest.");
+        return;
+    }
 
-    Console.WriteLine(spend == neededGold
-        ? $"The healer tends to your wounds for {spend} gold. You feel fully restored."
-        : $"The healer tends to your wounds for {spend} gold — all you could afford.");
+    player.SpendGold(CombatConstants.HealCostGold);
+    player.Heal(CombatConstants.HealAmountPerUse);
+    player.RecoverMp(CombatConstants.HealAmountPerUse);
+
+    Console.WriteLine($"The healer tends to you for {CombatConstants.HealCostGold} gold. " +
+        $"You feel {CombatConstants.HealAmountPerUse} HP and {CombatConstants.HealAmountPerUse} MP better.");
 }
 
 // Works for a sheathed weapon (draws it) or a held shield (readies it) — whichever matches the name.
