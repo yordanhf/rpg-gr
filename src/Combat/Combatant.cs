@@ -68,6 +68,16 @@ public class Combatant
 
     public void ResetMp() => CurrentMp = MaxMp;
 
+    /// Puts HP back to a stored value (loading a saved character). Always leaves the combatant alive.
+    public void RestoreHp(int hp)
+    {
+        CurrentHp = Math.Clamp(hp, 1, MaxHp);
+        State = LifeState.Alive;
+        BleedRoundsLeft = 0;
+    }
+
+    public void RestoreMp(int mp) => CurrentMp = Math.Clamp(mp, 0, MaxMp);
+
     public void ApplyDamage(int amount)
     {
         CurrentHp -= amount;

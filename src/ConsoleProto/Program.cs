@@ -4,11 +4,12 @@ using World;
 
 const int NpcRespawnSeconds = 30;
 const string HelpLine =
-    "Commands: create, look [target], north/south/east/west/up/down (n/s/e/w/u/d), kill <target>, shape [target], " +
+    "Commands: create, continue, look [target], north/south/east/west/up/down (n/s/e/w/u/d), kill <target>, shape [target], " +
     "bandage [target], simulate [rounds] [npc], reset, flee (or stop), listk, quit";
 
 var rng = new SystemRandomSource();
 var world = new WorldState(WorldLoader.Load(), CharacterLoader.LoadNpc);
+var store = new JsonCharacterStore();
 
 Combatant? player = null; // no character until `create`; lives in memory only, lost on quit
 Room? playerRoom = null;
@@ -18,12 +19,16 @@ Combatant? activeNpc = null; // the opponent of the current (or last) fight
 Direction? pendingMove = null; // a move typed mid-fight: it counts as fleeing, and happens once the fight actually ends
 
 Console.WriteLine(HelpLine);
+Console.WriteLine("Type 'create' for a new character, or 'continue' to resume a saved one.");
 
 while (true)
 {
     var input = LineEditor.ReadLine("> ");
     if (input == null)
+    {
+        SaveCharacter(); // input closed (Ctrl+Z / end of pipe): same as quit
         break;
+    }
 
     var parts = input.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
     if (parts.Length == 0)
@@ -33,6 +38,10 @@ while (true)
     {
         case "create":
             HandleCreate();
+            break;
+
+        case "continue":
+            HandleContinue();
             break;
 
         case "look":
@@ -71,6 +80,7 @@ while (true)
 
         case "quit":
         case "exit":
+            SaveCharacter();
             return;
 
         default:
@@ -82,29 +92,80 @@ while (true)
     }
 }
 
+// Creating or resuming is only possible before playing: to switch characters, quit (which saves) and come back.
+bool CanStartSession()
+{
+    if (player == null)
+        return true;
+
+    Console.WriteLine($"You are already playing {player.Name}. Type quit to save and leave first.");
+    return false;
+}
+
 void HandleCreate()
 {
-    if (activeEngine is { IsFinished: false })
-    {
-        Console.WriteLine("Finish or flee the current fight first.");
+    if (!CanStartSession())
         return;
-    }
 
-    var created = CharacterCreation.Run();
+    var created = CharacterCreation.Run(store.Exists);
     if (created == null)
     {
         Console.WriteLine("Character creation cancelled.");
         return;
     }
 
-    player = created;
-    playerRoom = world.Map.StartRoom;
+    EnterWorld(created, world.Map.StartRoom);
+}
+
+void HandleContinue()
+{
+    if (!CanStartSession())
+        return;
+
+    Console.Write("Name (empty to cancel): ");
+    var name = Console.ReadLine()?.Trim();
+    if (string.IsNullOrEmpty(name))
+        return;
+
+    var save = store.Load(name);
+    if (save == null)
+    {
+        Console.WriteLine("There is no saved character by that name.");
+        return;
+    }
+
+    var loaded = save.ToCombatant(CharacterLoader.GetRace);
+    var room = world.Map.GetRoom(save.RoomId);
+    if (room == null)
+    {
+        Console.WriteLine("The place where you left off no longer exists; you wake up at the start.");
+        room = world.Map.StartRoom;
+    }
+
+    Console.WriteLine($"Welcome back, {loaded.Name}.");
+    EnterWorld(loaded, room);
+}
+
+void EnterWorld(Combatant character, Room room)
+{
+    player = character;
+    playerRoom = room;
     activeEngine = null;
     activeNpc = null;
     pendingMove = null;
 
     Console.WriteLine();
-    RoomView.Write(playerRoom, world.NpcsIn(playerRoom));
+    RoomView.Write(room, world.NpcsIn(room));
+}
+
+// Characters are only written when leaving the game, never mid-session.
+void SaveCharacter()
+{
+    if (player == null || playerRoom == null)
+        return;
+
+    store.Save(CharacterSave.From(player, playerRoom.Id));
+    Console.WriteLine($"{player.Name} has been saved.");
 }
 
 bool RequirePlayer()

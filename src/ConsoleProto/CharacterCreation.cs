@@ -9,9 +9,9 @@ internal static class CharacterCreation
     private const int MaxNameLength = 16;
 
     /// Returns null if the user cancels (empty answer) or input ends.
-    public static Combatant? Run()
+    public static Combatant? Run(Func<string, bool> nameTaken)
     {
-        var name = AskName();
+        var name = AskName(nameTaken);
         if (name == null)
             return null;
 
@@ -42,7 +42,7 @@ internal static class CharacterCreation
         return player;
     }
 
-    private static string? AskName()
+    private static string? AskName(Func<string, bool> nameTaken)
     {
         while (true)
         {
@@ -52,10 +52,20 @@ internal static class CharacterCreation
                 return null;
 
             var name = input.Trim();
-            if (name.Length >= MinNameLength && name.Length <= MaxNameLength && name.All(char.IsLetter))
-                return char.ToUpperInvariant(name[0]) + name[1..].ToLowerInvariant();
+            if (name.Length < MinNameLength || name.Length > MaxNameLength || !name.All(char.IsLetter))
+            {
+                Console.WriteLine($"Names use only letters, {MinNameLength}-{MaxNameLength} long.");
+                continue;
+            }
 
-            Console.WriteLine($"Names use only letters, {MinNameLength}-{MaxNameLength} long.");
+            name = char.ToUpperInvariant(name[0]) + name[1..].ToLowerInvariant();
+            if (nameTaken(name))
+            {
+                Console.WriteLine("A character with that name already exists.");
+                continue;
+            }
+
+            return name;
         }
     }
 

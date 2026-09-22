@@ -7,6 +7,9 @@ public class Race
     /// No modifiers at all — also the fallback for a combatant with no race set.
     public static readonly Race None = new() { Name = "None" };
 
+    /// Data id (the file name in data/races), set by the loader. Used to store a character's race.
+    public string Id { get; set; } = "";
+
     public required string Name { get; init; }
 
     /// Flavor text shown at character creation. Hints at strengths and weaknesses without showing numbers.

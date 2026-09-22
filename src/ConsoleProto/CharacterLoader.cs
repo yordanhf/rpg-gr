@@ -42,7 +42,7 @@ internal static class CharacterLoader
         return Directory.GetFiles(dir, "*.json")
             .Select(f => Path.GetFileNameWithoutExtension(f))
             .OrderBy(id => id, StringComparer.OrdinalIgnoreCase)
-            .Select(id => (Id: id, Race: LoadRace(id)))
+            .Select(id => (Id: id, Race: GetRace(id)))
             .Where(r => r.Race.Playable)
             .ToList();
     }
@@ -70,14 +70,16 @@ internal static class CharacterLoader
             .ToList();
     }
 
-    private static Race LoadRace(string id)
+    public static Race GetRace(string id)
     {
         var path = Path.Combine(DataDir, "races", $"{id.ToLowerInvariant()}.json");
         if (!File.Exists(path))
             throw new InvalidDataException($"Unknown race '{id}' (expected {path})");
 
-        return JsonSerializer.Deserialize<Race>(File.ReadAllText(path), RaceOptions)
+        var race = JsonSerializer.Deserialize<Race>(File.ReadAllText(path), RaceOptions)
             ?? throw new InvalidDataException($"Could not load race from {path}");
+        race.Id = id.ToLowerInvariant();
+        return race;
     }
 
     private static Combatant LoadFrom(string path)
@@ -94,7 +96,7 @@ internal static class CharacterLoader
     private sealed class RaceByIdConverter : JsonConverter<Race>
     {
         public override Race Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
-            LoadRace(reader.GetString() ?? throw new JsonException("Race id must be a string."));
+            GetRace(reader.GetString() ?? throw new JsonException("Race id must be a string."));
 
         public override void Write(Utf8JsonWriter writer, Race value, JsonSerializerOptions options) =>
             writer.WriteStringValue(value.Name.ToLowerInvariant());
