@@ -37,7 +37,19 @@
    - Si el que cae es el jugador: no puede hacer nada (ni `kill`, ni `bandage`, ni `flee`) hasta desangrarse o `reset`; por ahora nadie puede vendarlo (no hay multijugador) y el NPC no lo remata solo.
    - `flee` con el oponente sangrando: se sale del combate y el NPC sigue sangrando (`BleedOutAsync` en `Program.cs` lleva la cuenta, ya sin motor). Se reutiliza el mismo NPC (`activeNpc`) al repetir `kill <id>` mientras esté vivo o sangrando; si murió, reaparece uno nuevo. Solo se recuerda **un** NPC activo.
    - El motor emite `OnNarration` para estos textos (perspectiva "You" según `IsPlayer`) y protege sus métodos con un `lock`, porque `kill`/`bandage` llegan desde otro hilo que el bucle de rondas.
+8quinquies. **Durabilidad:** cada arma/armadura arranca en `CombatConstants.MaxDurability = 1000`. Un golpe **que conecta** (no en miss) baja 1 punto, siempre, sin importar el tier ni si es crítico: el arma del atacante y **cada pieza** de la armadura del defensor. En 0 el item queda "roto": se puede seguir usando/llevando puesto pero sus atributos de combate leen como 0 (`Weapon.EffectiveHit/Damage/CritChanceBonus/CritPower`, `Armor.EffectiveAbsorb/Deflect`). Se repara en un herrero (**solo una vez en la vida del item**, `HasBeenRepaired`), a un precio justo según cuánto le falte — pendiente de implementar el comando/NPC herrero. Un item reparado se marca (`HasBeenRepaired`) y se mostrará con un color distinto en su descripción (pendiente de implementar esa parte visual).
 8. Al final de cada ronda: bajan los cooldowns y avanza la duración de buffs y debuffs.
+
+## Sistema monetario e inventario (EN PROGRESO)
+- **Moneda:** `gold`, unidad única, sin submonedas. `Combatant.Gold` (+`AddGold`/`SpendGold`/`RestoreGold`), persistido en `CharacterSave`. Comando `gold` para consultar el saldo — a diferencia del HP, el gold **sí se muestra como número exacto**.
+- **Filosofía de precios:** el gold debe sentirse valioso — nada de manejar 1000 de gold. 100 de gold ya es una cantidad importante; un item de 200-300 es algo muy valioso en el juego. Números concretos de items pendientes de definir (se irán afinando).
+- **Tiendas (pendiente de implementar):** el jugador compra al 100% del precio base, y vende a la tienda al 25% del precio base. Habrá un **tope de venta** (`nada se vende por más de X gold`, valor exacto pendiente de fijar). Botín: algunos NPC sueltan gold al morir; los animales (rat/deer/beast) sueltan un material (piel, colmillo…) vendible en la tienda correspondiente.
+- **Durabilidad:** ver regla 8quinquies arriba.
+- **Bulk e inventario (pendiente de implementar):** cada item tiene `Bulk` (1 o 2 "espacios"). El jugador tiene 2 manos (un arma de bulk 2 exige ambas manos libres; una armadura muy grande también ocupa las 2 manos mientras se lleva en mano sin equipar) y una mochila. 5 slots de armadura por parte del cuerpo — **Head** (helm), **Torso** (armour/hauberk), **Arms** (vambraces/gauntlets), **Legs** (steel leggings/mail pants), **Feet** (pelt boots, etc.) — y una pieza puede ocupar **más de un slot** (ej. unos "mail pants" que incluyen los zapatos = Legs+Feet a la vez).
+- **Rebalance de armadura (pendiente):** repartir `Absorb`/`Deflect` entre los 5 slots para que un **set completo** (una pieza por slot) nunca sume más de 100 en cada uno.
+- **Mundo (pendiente):** más habitaciones en Millford, separar rat/deer/beast (hoy los 3 están juntos en `millford.square`) en una habitación cada uno, una tienda con set inicial de armadura + un par de armas flojas para empezar el juego, y una forja con un herrero que repara.
+- **Herrero/reparación (pendiente):** precio de reparación según cuánto le falte al item de durabilidad (fórmula exacta pendiente).
+- **Latones de basura (pendiente):** en tiendas y otras habitaciones, para descartar items permanentemente.
 
 ## Emotes (provisionales, el desarrollador los cambiará)
 De más ligero a más fuerte:
