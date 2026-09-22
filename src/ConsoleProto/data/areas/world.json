@@ -1,0 +1,21 @@
+{
+  "id": "world",
+  "name": "The Wilds",
+  "type": "world",
+  "rooms": [
+    {
+      "id": "millford_gate",
+      "name": "Millford Gate",
+      "start": true,
+      "description": "A weathered wooden arch spans the muddy road, marking the northern edge of the village of Millford. Beyond it, cottages with smoking chimneys huddle around a cobbled square. To the north the road fades into open wilderness. A crooked signpost stands beside the arch.",
+      "exits": {
+        "south": "millford.square"
+      },
+      "details": {
+        "arch": "The arch is built of dark, weather-stained beams, carved long ago with vines and small birds. Someone has tied a faded ribbon to its highest post.",
+        "sign": "A crooked wooden sign reads: 'MILLFORD. Travelers welcome. The village map is posted below.'",
+        "map": "        M I L L F O R D\n\n         [ The Gate ]   <-- you are here\n               |\n         [ The Square ]\n"
+      }
+    }
+  ]
+}

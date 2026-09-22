@@ -1,5 +1,6 @@
 {
   "name": "a rat",
+  "description": "A scruffy brown rat with twitching whiskers and beady, wary eyes.",
   "isPlayer": false,
   "race": "creature",
   "maxHp": 25,

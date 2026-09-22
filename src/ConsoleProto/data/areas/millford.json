@@ -1,0 +1,24 @@
+{
+  "id": "millford",
+  "name": "Millford",
+  "type": "town",
+  "rooms": [
+    {
+      "id": "square",
+      "name": "Millford Square",
+      "description": "You stand in the middle of a broad cobbled square, worn smooth by generations of boots. A moss-ringed stone well sits at its heart. Timber-framed houses lean in on every side, and the road north leads back out through the village gate.",
+      "exits": {
+        "north": "world.millford_gate"
+      },
+      "details": {
+        "well": "The old stone well is ringed with moss. Cool air rises from its depths, and far below you can hear the faint drip of water.",
+        "houses": "Crooked timber-framed houses, their shutters half closed. Smoke curls from most of the chimneys."
+      },
+      "spawns": [
+        "rat",
+        "deer",
+        "beast"
+      ]
+    }
+  ]
+}

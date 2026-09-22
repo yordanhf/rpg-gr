@@ -4,7 +4,13 @@ public enum LifeState { Alive, Bleeding, Dead }
 
 public class Combatant
 {
+    /// Data id for NPCs (the file name in data/npcs), set by the loader. Used to match `kill rat`, `look rat`...
+    public string Id { get; set; } = "";
+
     public required string Name { get; init; }
+
+    /// Shown by `look <target>`.
+    public string Description { get; init; } = "";
     public required int MaxHp { get; init; }
     /// Can go below 0: 0 or less means bleeding (or dead if far enough below, see CombatConstants.InstantDeathHp).
     public int CurrentHp { get; private set; }

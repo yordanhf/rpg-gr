@@ -1,5 +1,6 @@
 {
   "name": "a deer",
+  "description": "A graceful deer with a wide spread of antlers, ready to bolt or to charge.",
   "isPlayer": false,
   "race": "creature",
   "maxHp": 45,

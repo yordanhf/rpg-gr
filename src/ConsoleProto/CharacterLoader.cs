@@ -50,7 +50,12 @@ internal static class CharacterLoader
     public static Combatant? LoadNpc(string id)
     {
         var path = Path.Combine(DataDir, "npcs", $"{id.ToLowerInvariant()}.json");
-        return File.Exists(path) ? LoadFrom(path) : null;
+        if (!File.Exists(path))
+            return null;
+
+        var npc = LoadFrom(path);
+        npc.Id = id.ToLowerInvariant();
+        return npc;
     }
 
     public static IReadOnlyList<string> ListNpcIds()
