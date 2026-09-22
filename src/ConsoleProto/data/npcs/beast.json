@@ -3,6 +3,7 @@
   "description": "A hulking beast with matted fur and yellow eyes. Its claws scrape the ground as it watches you.",
   "isPlayer": false,
   "race": "creature",
+  "respawnTicks": 1,
   "maxHp": 60,
   "maxMp": 0,
   "strength": 25,

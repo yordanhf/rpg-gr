@@ -3,6 +3,7 @@
   "description": "A graceful deer with a wide spread of antlers, ready to bolt or to charge.",
   "isPlayer": false,
   "race": "creature",
+  "respawnTicks": 1,
   "maxHp": 45,
   "maxMp": 0,
   "strength": 15,

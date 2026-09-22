@@ -2,11 +2,12 @@ using Combat;
 using ConsoleProto;
 using World;
 
-const int NpcRespawnSeconds = 30;
+const int CorpseFadeSeconds = 30; // how long a corpse (and its loot-rights restriction) lasts
+const int RespawnTickSeconds = 600; // world heartbeat: every 10 minutes, due respawns (Combatant.RespawnTicks) go live
 const string HelpLine =
     "Commands: create, continue, look [target], north/south/east/west/up/down (n/s/e/w/u/d), kill <target>, shape [target], " +
     "bandage [target], wield <weapon|shield>, sheath [weapon], wear <armor>, remove <armor>, hands, i (or inventory), gold, " +
-    "take/get/loot <item>, list, buy <item>, simulate [rounds] [npc], reset, flee (or stop), listk, quit";
+    "take/get/loot <item>, list, buy <item>, sell <item>, simulate [rounds] [npc], reset, flee (or stop), listk, quit";
 
 var rng = new SystemRandomSource();
 var world = new WorldState(WorldLoader.Load(), CharacterLoader.LoadNpc);
@@ -18,6 +19,8 @@ Room? playerRoom = null;
 CombatEngine? activeEngine = null;
 Combatant? activeNpc = null; // the opponent of the current (or last) fight
 Direction? pendingMove = null; // a move typed mid-fight: it counts as fleeing, and happens once the fight actually ends
+
+_ = RunRespawnTicksAsync(); // runs for the whole process, independent of any player session
 
 Console.WriteLine(HelpLine);
 Console.WriteLine("Type 'create' for a new character, or 'continue' to resume a saved one.");
@@ -111,6 +114,10 @@ while (true)
 
         case "buy":
             HandleBuy(parts);
+            break;
+
+        case "sell":
+            HandleSell(parts);
             break;
 
         case "i":
@@ -330,8 +337,8 @@ void MovePlayer(Direction direction)
 }
 
 // A dead NPC leaves its corpse behind (lootable only by whoever fought it, see Combatant.LootRights)
-// for NpcRespawnSeconds. Then the corpse fades — its loot spills onto the floor for anyone — and the
-// NPC respawns at the same moment.
+// for CorpseFadeSeconds — a short window, unrelated to how long the NPC itself takes to respawn.
+// Then the corpse fades and its remaining loot spills onto the floor for anyone.
 void OnNpcDied(Combatant npc)
 {
     var roomId = world.Remove(npc);
@@ -345,14 +352,27 @@ void OnNpcDied(Combatant npc)
         LootRights = npc.LootRights
     };
     world.AddCorpse(roomId, corpse);
-    _ = FadeCorpseAndRespawnAsync(roomId, corpse, npc.Id);
+    _ = FadeCorpseAsync(roomId, corpse);
+
+    // Not on the corpse's schedule: it waits for the world tick, however many ticks this NPC needs.
+    world.ScheduleRespawn(roomId, npc.Id, npc.RespawnTicks);
 }
 
-async Task FadeCorpseAndRespawnAsync(string roomId, Corpse corpse, string npcId)
+async Task FadeCorpseAsync(string roomId, Corpse corpse)
 {
-    await Task.Delay(NpcRespawnSeconds * 1000);
+    await Task.Delay(CorpseFadeSeconds * 1000);
     world.FadeCorpse(roomId, corpse);
-    world.Spawn(roomId, npcId);
+}
+
+// The world's heartbeat: every RespawnTickSeconds, whichever pending respawns are due go live.
+// Runs for the whole process — NPCs keep respawning even between player sessions.
+async Task RunRespawnTicksAsync()
+{
+    while (true)
+    {
+        await Task.Delay(RespawnTickSeconds * 1000);
+        world.AdvanceRespawnTick();
+    }
 }
 
 void HandleKill(string[] parts)
@@ -692,6 +712,64 @@ void HandleBuy(string[] parts)
 
         Console.WriteLine($"You can't afford that ({cost} gold; you have {player.Gold}).");
         return false;
+    }
+}
+
+// Only sells what's already unequipped (sheathed weapons, held-but-unworn armor, backpack items) —
+// equipped gear needs to be removed/sheathed first, so you don't sell what you're actively using
+// by accident. Any shop buys anything, at CombatConstants.ShopSellFraction of its Value (min 1 gold).
+void HandleSell(string[] parts)
+{
+    if (!RequirePlayer())
+        return;
+
+    if (playerRoom?.Shop == null)
+    {
+        Console.WriteLine("There is nowhere to sell that here.");
+        return;
+    }
+
+    if (parts.Length < 2)
+    {
+        Console.WriteLine("Sell what?");
+        return;
+    }
+
+    var name = string.Join(' ', parts.Skip(1));
+
+    var weapon = player!.SheathedWeapons.FirstOrDefault(w => w.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+    if (weapon != null)
+    {
+        player.SheathedWeapons.Remove(weapon);
+        Paid(weapon.Name, weapon.Value);
+        return;
+    }
+
+    var armor = player.HeldArmor.FirstOrDefault(a => a.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+    if (armor != null)
+    {
+        player.HeldArmor.Remove(armor);
+        Paid(armor.Name, armor.Value);
+        return;
+    }
+
+    var item = player.BackpackItems.FirstOrDefault(i => i.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+    if (item != null)
+    {
+        player.BackpackItems.Remove(item);
+        Paid(item.Name, item.Value);
+        return;
+    }
+
+    bool stillWorn = player.EquippedArmor.Any(a => a.Name.Contains(name, StringComparison.OrdinalIgnoreCase))
+        || (!player.Weapon.IsUnarmed && player.Weapon.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+    Console.WriteLine(stillWorn ? "You'll need to remove or sheath that first." : "You don't have that.");
+
+    void Paid(string itemName, int baseValue)
+    {
+        int price = Math.Max(1, (int)Math.Round(baseValue * CombatConstants.ShopSellFraction));
+        player.AddGold(price);
+        Console.WriteLine($"You sell {itemName} for {price} gold.");
     }
 }
 

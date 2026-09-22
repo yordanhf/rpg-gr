@@ -3,6 +3,7 @@
   "description": "A scruffy brown rat with twitching whiskers and beady, wary eyes.",
   "isPlayer": false,
   "race": "creature",
+  "respawnTicks": 1,
   "maxHp": 25,
   "maxMp": 0,
   "strength": 5,

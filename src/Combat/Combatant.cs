@@ -11,6 +11,11 @@ public class Combatant
 
     /// Shown by `look <target>`.
     public string Description { get; init; } = "";
+
+    /// How many 10-minute world ticks must pass after death before this NPC respawns. 1 for common
+    /// animals; a rare/important NPC would use a much higher number.
+    public int RespawnTicks { get; init; } = 1;
+
     public required int MaxHp { get; init; }
     /// Can go below 0: 0 or less means bleeding (or dead if far enough below, see CombatConstants.InstantDeathHp).
     public int CurrentHp { get; private set; }

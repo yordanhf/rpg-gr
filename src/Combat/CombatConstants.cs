@@ -43,4 +43,8 @@ public static class CombatConstants
 
     /// Bulk-units of hand space available for wielding a weapon (a 2-handed weapon uses all of it).
     public const double HandCapacity = 2;
+
+    /// Selling to a shop pays this fraction of an item's Value (buying costs the full Value).
+    /// No price cap yet — that's still a pending balance decision.
+    public const double ShopSellFraction = 0.25;
 }

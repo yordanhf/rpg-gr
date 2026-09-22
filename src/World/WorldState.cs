@@ -10,6 +10,14 @@ public class WorldState
     private readonly Dictionary<string, List<Combatant>> _occupants = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<Corpse>> _corpses = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<Item>> _groundItems = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<PendingRespawn> _pendingRespawns = new();
+
+    private class PendingRespawn
+    {
+        public required string RoomId { get; init; }
+        public required string NpcId { get; init; }
+        public int TicksRemaining { get; set; }
+    }
 
     public WorldMap Map { get; }
 
@@ -122,5 +130,31 @@ public class WorldState
             if (_groundItems.TryGetValue(roomId, out var list))
                 list.Remove(item);
         }
+    }
+
+    /// An NPC doesn't respawn the instant its timer runs out — it waits for the next world tick
+    /// (every 10 minutes, see the caller), snapped to whichever tick reaches 0 first.
+    public void ScheduleRespawn(string roomId, string npcId, int ticks)
+    {
+        lock (_pendingRespawns)
+            _pendingRespawns.Add(new PendingRespawn { RoomId = roomId, NpcId = npcId, TicksRemaining = Math.Max(1, ticks) });
+    }
+
+    /// Call once per world tick: advances every pending respawn and spawns whichever are now due.
+    public void AdvanceRespawnTick()
+    {
+        List<PendingRespawn> due;
+        lock (_pendingRespawns)
+        {
+            foreach (var pending in _pendingRespawns)
+                pending.TicksRemaining--;
+
+            due = _pendingRespawns.Where(p => p.TicksRemaining <= 0).ToList();
+            foreach (var d in due)
+                _pendingRespawns.Remove(d);
+        }
+
+        foreach (var d in due)
+            Spawn(d.RoomId, d.NpcId);
     }
 }
