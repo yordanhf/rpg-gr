@@ -122,6 +122,27 @@ public class Combatant
     /// Sets the gold balance read back from a save file.
     public void RestoreGold(int amount) => Gold = Math.Max(0, amount);
 
+    /// Not tied to leveling yet — just accumulates. Irrelevant for NPCs.
+    public int Experience { get; private set; }
+
+    public void AddExperience(int amount) => Experience += Math.Max(0, amount);
+
+    /// Sets the experience total read back from a save file.
+    public void RestoreExperience(int amount) => Experience = Math.Max(0, amount);
+
+    /// Incremental HP recovery (unlike RestoreHp, which sets an absolute value for save loading).
+    /// A no-op while bleeding or dead — those need Stabilize/reviving, not a top-up.
+    public void Heal(int amount)
+    {
+        if (State != LifeState.Alive)
+            return;
+
+        CurrentHp = Math.Min(MaxHp, CurrentHp + Math.Max(0, amount));
+    }
+
+    /// Incremental MP recovery, mirroring Heal().
+    public void RecoverMp(int amount) => CurrentMp = Math.Min(MaxMp, CurrentMp + Math.Max(0, amount));
+
     /// Hand-bulk currently spoken for: the wielded weapon, a worn shield (it still needs a hand even
     /// though it's "equipped" — unlike the other five slots, which are strapped on and cost nothing),
     /// and anything held-but-unworn. Each held thing takes at least a full hand-slot — a pelt at 0.25

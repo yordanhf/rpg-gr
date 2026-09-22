@@ -44,7 +44,8 @@ internal static class WorldLoader
             Details = r.Details ?? new(),
             Spawns = r.Spawns ?? new(),
             IsStart = r.Start,
-            Shop = r.Shop
+            Shop = r.Shop,
+            Healer = r.Healer
         }).ToList()
     };
 
@@ -72,5 +73,6 @@ internal static class WorldLoader
         Dictionary<string, string>? Details,
         List<string>? Spawns,
         bool Start,
-        Shop? Shop);
+        Shop? Shop,
+        Healer? Healer);
 }

@@ -3,7 +3,7 @@
   "isPlayer": true,
   "race": "human",
   "maxHp": 50,
-  "maxMp": 0,
+  "maxMp": 50,
   "strength": 20,
   "constitution": 20,
   "agility": 20,

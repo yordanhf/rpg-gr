@@ -49,4 +49,7 @@ public static class CombatConstants
 
     /// Nothing sells to a shop for more than this, regardless of Value — placeholder, per the dev's call.
     public const int MaxSellPrice = 50;
+
+    /// A healer restores this many HP *and* this many MP per gold spent, at the same time.
+    public const int HealHpMpPerGold = 2;
 }

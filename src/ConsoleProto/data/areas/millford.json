@@ -11,7 +11,8 @@
         "north": "world.millford_gate",
         "west": "shop",
         "south": "alley",
-        "east": "meadow"
+        "east": "meadow",
+        "up": "healer"
       },
       "details": {
         "well": "The old stone well is ringed with moss. Cool air rises from its depths, and far below you can hear the faint drip of water.",
@@ -41,6 +42,17 @@
           { "name": "Wooden Shield", "absorb": 3, "deflect": 4, "slots": ["Shield"], "bulk": 1, "value": 6 }
         ],
         "backpack": { "name": "Traveler's Pack", "capacity": 2, "value": 10 }
+      }
+    },
+    {
+      "id": "healer",
+      "name": "Millford Healer's House",
+      "description": "A small cottage up a short lane from the square, warm with candlelight and the smell of dried herbs. A healer looks up as you enter.",
+      "exits": {
+        "down": "square"
+      },
+      "healer": {
+        "name": "Millford Healer's House"
       }
     },
     {

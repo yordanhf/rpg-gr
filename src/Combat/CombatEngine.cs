@@ -15,9 +15,11 @@ public class CombatEngine
     /// or bleed out, but rounds keep passing (the bleeding clock runs).
     public bool IsPaused => First.IsBleeding || Second.IsBleeding;
 
-    /// Carries the full result (including Tier), not just the formatted text, so a presentation
-    /// layer can react to hit intensity (color, screen shake, sound...) without re-parsing the emote.
-    public event Action<HitResult>? OnAttackResult;
+    /// Carries the attacker/defender along with the full result (including Tier), not just the
+    /// formatted text — a presentation layer can react to hit intensity (color, screen shake, sound...)
+    /// without re-parsing the emote, and knowing who attacked is what lets a caller award XP only for
+    /// the player's own hits.
+    public event Action<Combatant, Combatant, HitResult>? OnAttackResult;
 
     /// Plain narration lines (falling, bleeding, bandaging...), already phrased from the player's perspective.
     public event Action<string>? OnNarration;
@@ -147,7 +149,7 @@ public class CombatEngine
             : ResolveAttack(attacker, defender);
 
         defender.ApplyDamage(result.Damage);
-        OnAttackResult?.Invoke(result);
+        OnAttackResult?.Invoke(attacker, defender, result);
 
         if (defender.IsBleeding)
         {

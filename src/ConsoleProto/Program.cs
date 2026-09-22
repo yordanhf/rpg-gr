@@ -6,8 +6,8 @@ const int CorpseFadeSeconds = 30; // how long a corpse (and its loot-rights rest
 const int RespawnTickSeconds = 600; // world heartbeat: every 10 minutes, due respawns (Combatant.RespawnTicks) go live
 const string HelpLine =
     "Commands: create, continue, look [target], north/south/east/west/up/down (n/s/e/w/u/d), kill <target>, shape [target], " +
-    "bandage [target], wield <weapon|shield>, sheath [weapon], wear <armor>, remove <armor>, hands, i (or inventory), gold, " +
-    "take/get/loot <item>, list, buy <item>, sell <item>, simulate [rounds] [npc], reset, flee (or stop), listk, quit";
+    "bandage [target], wield <weapon|shield>, sheath [weapon], wear <armor>, remove <armor>, hands, i (or inventory), gold, xp, " +
+    "take/get/loot <item>, list, buy <item>, sell <item>, heal, simulate [rounds] [npc], reset, flee (or stop), listk, quit";
 
 var rng = new SystemRandomSource();
 var world = new WorldState(WorldLoader.Load(), CharacterLoader.LoadNpc);
@@ -81,6 +81,15 @@ while (true)
 
         case "gold":
             HandleGold();
+            break;
+
+        case "xp":
+        case "experience":
+            HandleExperience();
+            break;
+
+        case "heal":
+            HandleHeal();
             break;
 
         case "wield":
@@ -348,6 +357,10 @@ void MovePlayer(Direction direction)
 // Then the corpse fades and its remaining loot spills onto the floor for anyone.
 void OnNpcDied(Combatant npc)
 {
+    // Flat bonus on top of the per-hit XP already awarded during the fight (roughly its MaxHp worth,
+    // since you can't out-damage its total HP by much) — together landing close to 2x MaxHp total.
+    player?.AddExperience(npc.MaxHp);
+
     var roomId = world.Remove(npc);
     if (roomId == null)
         return;
@@ -432,7 +445,13 @@ void HandleKill(string[] parts)
 
     // Player typed "kill" -> keeps initiative every round.
     var engine = new CombatEngine(player!, npc, rng);
-    engine.OnAttackResult += result => LineEditor.Print(() => EmoteHighlighter.WriteLine(result.EmoteText, result.Tier));
+    engine.OnAttackResult += (attacker, defender, result) =>
+    {
+        LineEditor.Print(() => EmoteHighlighter.WriteLine(result.EmoteText, result.Tier));
+        // XP for every point of damage you land — a miss (0 damage) is a harmless no-op here.
+        if (ReferenceEquals(attacker, player))
+            player!.AddExperience(result.Damage);
+    };
     engine.OnNarration += text => LineEditor.Print(() => Console.WriteLine(text));
     activeEngine = engine;
 
@@ -825,6 +844,53 @@ void HandleGold()
         return;
 
     Console.WriteLine(player!.Gold == 1 ? "You have 1 gold." : $"You have {player!.Gold} gold.");
+}
+
+void HandleExperience()
+{
+    if (!RequirePlayer())
+        return;
+
+    Console.WriteLine($"You have {player!.Experience} experience.");
+}
+
+// Heals HP and MP together, CombatConstants.HealHpMpPerGold each per gold. Charges only for the
+// larger of the two deficits — the smaller one gets topped off for free alongside it.
+void HandleHeal()
+{
+    if (!RequirePlayer() || !PlayerCanAct())
+        return;
+
+    if (playerRoom?.Healer == null)
+    {
+        Console.WriteLine("There is no healer here.");
+        return;
+    }
+
+    int hpMissing = player!.MaxHp - player.CurrentHp;
+    int mpMissing = player.MaxMp - player.CurrentMp;
+    if (hpMissing <= 0 && mpMissing <= 0)
+    {
+        Console.WriteLine("You are already at full health and mana.");
+        return;
+    }
+
+    int neededGold = (int)Math.Ceiling(Math.Max(hpMissing, mpMissing) / (double)CombatConstants.HealHpMpPerGold);
+    int spend = Math.Min(neededGold, player.Gold);
+    if (spend <= 0)
+    {
+        Console.WriteLine("You don't have any gold to pay for healing.");
+        return;
+    }
+
+    player.SpendGold(spend);
+    int healed = spend * CombatConstants.HealHpMpPerGold;
+    player.Heal(healed);
+    player.RecoverMp(healed);
+
+    Console.WriteLine(spend == neededGold
+        ? $"The healer tends to your wounds for {spend} gold. You feel fully restored."
+        : $"The healer tends to your wounds for {spend} gold — all you could afford.");
 }
 
 // Works for a sheathed weapon (draws it) or a held shield (readies it) — whichever matches the name.

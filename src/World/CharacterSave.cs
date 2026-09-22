@@ -35,6 +35,7 @@ public class CharacterSave
     public required double Dodge { get; init; }
 
     public int Gold { get; init; }
+    public int Experience { get; init; }
 
     /// A character that is down (bleeding or dead) is saved as if bandaged: alive, at a fraction of max HP,
     /// because nobody would be around to help them while the game is closed.
@@ -62,7 +63,8 @@ public class CharacterSave
             Attack = player.Attack,
             Defense = player.Defense,
             Dodge = player.Dodge,
-            Gold = player.Gold
+            Gold = player.Gold,
+            Experience = player.Experience
         };
     }
 
@@ -94,6 +96,7 @@ public class CharacterSave
         player.RestoreHp(CurrentHp);
         player.RestoreMp(CurrentMp);
         player.RestoreGold(Gold);
+        player.RestoreExperience(Experience);
         return player;
     }
 }

@@ -9,6 +9,12 @@ public class Shop
     public Combat.Backpack? Backpack { get; init; }
 }
 
+/// A room with a healer — heals HP and MP together at CombatConstants.HealHpMpPerGold each, for gold.
+public class Healer
+{
+    public required string Name { get; init; }
+}
+
 public class Room
 {
     /// Global id: "<areaId>.<roomId>", e.g. "world.millford_gate". Exits reference other rooms by this id.
@@ -31,6 +37,9 @@ public class Room
 
     /// Set if this room has a shop; null otherwise.
     public Shop? Shop { get; init; }
+
+    /// Set if this room has a healer; null otherwise.
+    public Healer? Healer { get; init; }
 }
 
 public class Area
