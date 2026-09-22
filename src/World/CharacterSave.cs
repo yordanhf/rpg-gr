@@ -33,6 +33,7 @@ public class CharacterSave
     public required WeaponSave Weapon { get; init; }
     public List<WeaponSave> SheathedWeapons { get; init; } = new();
     public List<ArmorSave> Armor { get; init; } = new();
+    public List<ArmorSave> HeldArmor { get; init; } = new();
     public BackpackSave? Backpack { get; init; }
     public List<ItemSave> BackpackItems { get; init; } = new();
 
@@ -76,6 +77,7 @@ public class CharacterSave
             Weapon = ToWeaponSave(player.Weapon),
             SheathedWeapons = player.SheathedWeapons.Select(ToWeaponSave).ToList(),
             Armor = player.EquippedArmor.Select(ToArmorSave).ToList(),
+            HeldArmor = player.HeldArmor.Select(ToArmorSave).ToList(),
             Backpack = player.Backpack is { } bp ? new BackpackSave(bp.Name, bp.Capacity) : null,
             BackpackItems = player.BackpackItems.Select(i => new ItemSave(i.Name, i.Bulk, i.Value)).ToList()
         };
@@ -140,6 +142,7 @@ public class CharacterSave
             Weapon = FromWeaponSave(Weapon),
             SheathedWeapons = SheathedWeapons.Select(FromWeaponSave).ToList(),
             EquippedArmor = Armor.Select(FromArmorSave).ToList(),
+            HeldArmor = HeldArmor.Select(FromArmorSave).ToList(),
             Backpack = Backpack is { } bp ? new Backpack { Name = bp.Name, Capacity = bp.Capacity } : null,
             BackpackItems = BackpackItems.Select(i => new Item { Name = i.Name, Bulk = i.Bulk, Value = i.Value }).ToList()
         };

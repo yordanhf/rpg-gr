@@ -4,7 +4,10 @@ public static class CombatConstants
 {
     public const double BaseCritChance = 0.005; // 0.5%, same for everyone before weapon bonuses.
     public const double MaxEffectiveStat = 125; // stats/skills cap here once buffs are applied.
-    public const double MaxArmorPoolTotal = 100; // Absorb and Deflect are each capped at this, summed across all equipped pieces.
+    // Absorb and Deflect are each hard-capped at this, summed across all equipped pieces (shield included) —
+    // same soft-100/hard-125 pattern as MaxEffectiveStat. A full set should normally land around 100;
+    // 125 only matters as a safety ceiling, same as stats with buffs.
+    public const double MaxArmorPoolTotal = 125;
 
     public const int MinDamage = 1;
     public const int MaxNonCritDamage = 30;

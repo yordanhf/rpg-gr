@@ -42,6 +42,10 @@ public class Combatant
 
     public List<Armor> EquippedArmor { get; init; } = new();
 
+    /// Armor pieces owned but not currently worn — physically in hand (unlike a sheathed weapon,
+    /// armor has nowhere free to sit), so they cost hand space same as if you'd just picked them up.
+    public List<Armor> HeldArmor { get; init; } = new();
+
     /// Weapons owned but not currently wielded — always available at no bulk cost ("their sheath").
     public List<Weapon> SheathedWeapons { get; init; } = new();
 
@@ -92,27 +96,72 @@ public class Combatant
     /// Sets the gold balance read back from a save file.
     public void RestoreGold(int amount) => Gold = Math.Max(0, amount);
 
-    /// Fails (returns false) if a slot the piece needs is already covered by something else worn.
-    public bool TryEquipArmor(Armor armor, out Armor? conflict)
-    {
-        conflict = EquippedArmor.FirstOrDefault(a => a.Slots.Overlaps(armor.Slots));
-        if (conflict != null)
-            return false;
+    /// Hand-bulk currently spoken for: the wielded weapon, a worn shield (it still needs a hand even
+    /// though it's "equipped" — unlike the other five slots, which are strapped on and cost nothing),
+    /// and anything held-but-unworn.
+    public double UsedHandBulk =>
+        (Weapon.IsUnarmed ? 0 : Weapon.Bulk)
+        + EquippedArmor.Where(a => a.Slots.Contains(BodySlot.Shield)).Sum(a => a.Bulk)
+        + HeldArmor.Sum(a => a.Bulk);
 
+    public double FreeHandBulk => Math.Max(0, CombatConstants.HandCapacity - UsedHandBulk);
+
+    /// Fails if a slot the piece needs is already covered by something else worn, or (shields only)
+    /// there isn't a free hand for it. `error` explains which.
+    public bool TryEquipArmor(Armor armor, out string? error)
+    {
+        var conflict = EquippedArmor.FirstOrDefault(a => a.Slots.Overlaps(armor.Slots));
+        if (conflict != null)
+        {
+            error = $"You need to remove your {conflict.Name} first.";
+            return false;
+        }
+
+        if (armor.Slots.Contains(BodySlot.Shield))
+        {
+            // Moving it from held-but-unworn to worn-as-a-shield doesn't add new hand load — it's
+            // already counted once (in HeldArmor); don't count it twice against its own move.
+            double handBulkWithoutThis = UsedHandBulk - (HeldArmor.Contains(armor) ? armor.Bulk : 0);
+            if (handBulkWithoutThis + armor.Bulk > CombatConstants.HandCapacity)
+            {
+                error = "Your hands are full.";
+                return false;
+            }
+        }
+
+        HeldArmor.Remove(armor);
         EquippedArmor.Add(armor);
+        error = null;
         return true;
     }
 
-    public void UnequipArmor(Armor armor) => EquippedArmor.Remove(armor);
+    /// Unequips a worn piece — it ends up held in your hand, not stored away.
+    public void UnequipArmor(Armor armor)
+    {
+        if (!EquippedArmor.Remove(armor))
+            return;
+
+        HeldArmor.Add(armor);
+    }
 
     /// Draws a weapon from its sheath into your hands, sheathing whatever was wielded before (if
-    /// anything). Returns null if the weapon isn't actually in your sheaths.
+    /// anything). Returns null if the weapon isn't actually in your sheaths, or there isn't enough
+    /// free hand space for it even after sheathing the current one.
     public Weapon? Wield(Weapon weapon)
     {
-        if (!SheathedWeapons.Remove(weapon))
+        if (!SheathedWeapons.Contains(weapon))
             return null;
 
         var previous = SheathCurrentWeapon();
+        if (weapon.Bulk > FreeHandBulk)
+        {
+            // Doesn't fit (e.g. a shield is using a hand) — put it back and undo the auto-sheath.
+            if (previous != null)
+                Wield(previous);
+            return null;
+        }
+
+        SheathedWeapons.Remove(weapon);
         Weapon = weapon;
         return previous;
     }

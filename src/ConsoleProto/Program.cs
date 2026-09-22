@@ -5,7 +5,8 @@ using World;
 const int NpcRespawnSeconds = 30;
 const string HelpLine =
     "Commands: create, continue, look [target], north/south/east/west/up/down (n/s/e/w/u/d), kill <target>, shape [target], " +
-    "bandage [target], wield <weapon>, sheath [weapon], hands, i (or inventory), gold, simulate [rounds] [npc], reset, flee (or stop), listk, quit";
+    "bandage [target], wield <weapon|shield>, sheath [weapon], wear <armor>, remove <armor>, hands, i (or inventory), gold, " +
+    "simulate [rounds] [npc], reset, flee (or stop), listk, quit";
 
 var rng = new SystemRandomSource();
 var world = new WorldState(WorldLoader.Load(), CharacterLoader.LoadNpc);
@@ -84,6 +85,14 @@ while (true)
 
         case "sheath":
             HandleSheath(parts);
+            break;
+
+        case "wear":
+            HandleWear(parts);
+            break;
+
+        case "remove":
+            HandleRemoveArmor(parts);
             break;
 
         case "hands":
@@ -473,6 +482,7 @@ void HandleGold()
     Console.WriteLine(player!.Gold == 1 ? "You have 1 gold." : $"You have {player!.Gold} gold.");
 }
 
+// Works for a sheathed weapon (draws it) or a held shield (readies it) — whichever matches the name.
 void HandleWield(string[] parts)
 {
     if (!RequirePlayer() || !PlayerCanAct())
@@ -485,17 +495,88 @@ void HandleWield(string[] parts)
     }
 
     var name = string.Join(' ', parts.Skip(1));
+
     var weapon = player!.SheathedWeapons.FirstOrDefault(w => w.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
-    if (weapon == null)
+    if (weapon != null)
     {
-        Console.WriteLine("You don't have that sheathed.");
+        var previous = player.Wield(weapon);
+        if (!ReferenceEquals(player.Weapon, weapon))
+        {
+            Console.WriteLine("Your hands are full.");
+            return;
+        }
+
+        Console.WriteLine(previous != null
+            ? $"You sheath your {previous.Name} and draw your {weapon.Name}."
+            : $"You draw your {weapon.Name}.");
         return;
     }
 
-    var previous = player.Wield(weapon);
-    Console.WriteLine(previous != null
-        ? $"You sheath your {previous.Name} and draw your {weapon.Name}."
-        : $"You draw your {weapon.Name}.");
+    var shield = player.HeldArmor.FirstOrDefault(a => a.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+    if (shield != null)
+    {
+        if (!player.TryEquipArmor(shield, out var error))
+        {
+            Console.WriteLine(error);
+            return;
+        }
+
+        Console.WriteLine($"You ready your {shield.Name}.");
+        return;
+    }
+
+    Console.WriteLine("You don't have that.");
+}
+
+void HandleWear(string[] parts)
+{
+    if (!RequirePlayer() || !PlayerCanAct())
+        return;
+
+    if (parts.Length < 2)
+    {
+        Console.WriteLine("Wear what? Try: wear shield");
+        return;
+    }
+
+    var name = string.Join(' ', parts.Skip(1));
+    var armor = player!.HeldArmor.FirstOrDefault(a => a.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+    if (armor == null)
+    {
+        Console.WriteLine("You aren't holding that.");
+        return;
+    }
+
+    if (!player.TryEquipArmor(armor, out var error))
+    {
+        Console.WriteLine(error);
+        return;
+    }
+
+    Console.WriteLine($"You put on your {armor.Name}.");
+}
+
+void HandleRemoveArmor(string[] parts)
+{
+    if (!RequirePlayer() || !PlayerCanAct())
+        return;
+
+    if (parts.Length < 2)
+    {
+        Console.WriteLine("Remove what? Try: remove shield");
+        return;
+    }
+
+    var name = string.Join(' ', parts.Skip(1));
+    var armor = player!.EquippedArmor.FirstOrDefault(a => a.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+    if (armor == null)
+    {
+        Console.WriteLine("You aren't wearing that.");
+        return;
+    }
+
+    player.UnequipArmor(armor);
+    Console.WriteLine($"You remove your {armor.Name}.");
 }
 
 void HandleSheath(string[] parts)
@@ -525,9 +606,15 @@ void HandleHands()
     if (!RequirePlayer())
         return;
 
-    Console.WriteLine(player!.Weapon.IsUnarmed
+    var held = new List<string>();
+    if (!player!.Weapon.IsUnarmed)
+        held.Add(player.Weapon.Name);
+    held.AddRange(player.EquippedArmor.Where(a => a.Slots.Contains(BodySlot.Shield)).Select(a => a.Name));
+    held.AddRange(player.HeldArmor.Select(a => a.Name));
+
+    Console.WriteLine(held.Count == 0
         ? "Your hands are empty."
-        : $"You are holding {player.Weapon.Name} ({player.Weapon.Bulk} of {CombatConstants.HandCapacity} hand space).");
+        : $"You are holding: {string.Join(", ", held)} ({player.UsedHandBulk} of {CombatConstants.HandCapacity} hand space).");
 }
 
 void HandleInventory()
@@ -546,6 +633,9 @@ void HandleInventory()
         foreach (var armor in player.EquippedArmor)
             Console.WriteLine($"  {armor.Name} ({string.Join('/', armor.Slots)})");
     }
+
+    if (player.HeldArmor.Count > 0)
+        Console.WriteLine("In hand (not worn): " + string.Join(", ", player.HeldArmor.Select(a => a.Name)));
 
     if (player.Backpack is { } backpack)
     {
