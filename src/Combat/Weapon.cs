@@ -18,6 +18,13 @@ public class Weapon
 
     public EmoteTable? CustomEmotes { get; init; }
 
+    /// Hand-units needed to wield it (1 = one-handed, 2 = needs both hands free). Sheathed, it costs nothing.
+    public double Bulk { get; init; } = 1;
+
+    /// True only for a body's natural weapon (fists, bite, claws...) — not a physical item, so it has
+    /// no sheath and can't be un-wielded, dropped, or handled by the inventory system.
+    public bool IsUnarmed { get; init; }
+
     public int MaxDurability { get; init; } = CombatConstants.MaxDurability;
     public int Durability { get; private set; } = CombatConstants.MaxDurability;
 

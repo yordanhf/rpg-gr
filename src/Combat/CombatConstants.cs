@@ -37,4 +37,7 @@ public static class CombatConstants
     /// Every weapon/armor piece starts with this many durability points and loses 1 per hit it's
     /// involved in (landed for a weapon, taken for armor) — flat, regardless of the hit's tier.
     public const int MaxDurability = 1000;
+
+    /// Bulk-units of hand space available for wielding a weapon (a 2-handed weapon uses all of it).
+    public const double HandCapacity = 2;
 }

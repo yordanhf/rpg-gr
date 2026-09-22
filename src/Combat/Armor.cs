@@ -10,6 +10,13 @@ public class Armor
     /// Adds to the defender's side of the accuracy formula (alongside Agility + Dodge).
     public required double Deflect { get; init; }
 
+    /// Which body slot(s) it occupies when worn — some pieces cover more than one (e.g. mail
+    /// pants that include the boots cover Legs and Feet).
+    public required HashSet<BodySlot> Slots { get; init; }
+
+    /// Space it takes in a backpack, or in hand while carried unworn (can be fractional).
+    public required double Bulk { get; init; }
+
     public int MaxDurability { get; init; } = CombatConstants.MaxDurability;
     public int Durability { get; private set; } = CombatConstants.MaxDurability;
 

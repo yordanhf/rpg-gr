@@ -25,8 +25,29 @@ public class Combatant
 
     public Race Race { get; init; } = Race.None;
 
-    public required Weapon Weapon { get; init; }
+    private Weapon _weapon = null!;
+    private Weapon? _unarmedWeapon;
+
+    /// The weapon currently in hand. Setting it (JSON load, or mid-game via Wield/SheathCurrentWeapon)
+    /// remembers the first IsUnarmed weapon it's ever given as the fallback to revert to when sheathing.
+    public required Weapon Weapon
+    {
+        get => _weapon;
+        set
+        {
+            _weapon = value;
+            _unarmedWeapon ??= value.IsUnarmed ? value : null;
+        }
+    }
+
     public List<Armor> EquippedArmor { get; init; } = new();
+
+    /// Weapons owned but not currently wielded — always available at no bulk cost ("their sheath").
+    public List<Weapon> SheathedWeapons { get; init; } = new();
+
+    /// Bought at a shop; a fresh character has none.
+    public Backpack? Backpack { get; set; }
+    public List<Item> BackpackItems { get; init; } = new();
 
     // Base stats and skills, normally 0-100 (buffs can push the effective value up to CombatConstants.MaxEffectiveStat).
     public required double Strength { get; init; }
@@ -70,6 +91,57 @@ public class Combatant
 
     /// Sets the gold balance read back from a save file.
     public void RestoreGold(int amount) => Gold = Math.Max(0, amount);
+
+    /// Fails (returns false) if a slot the piece needs is already covered by something else worn.
+    public bool TryEquipArmor(Armor armor, out Armor? conflict)
+    {
+        conflict = EquippedArmor.FirstOrDefault(a => a.Slots.Overlaps(armor.Slots));
+        if (conflict != null)
+            return false;
+
+        EquippedArmor.Add(armor);
+        return true;
+    }
+
+    public void UnequipArmor(Armor armor) => EquippedArmor.Remove(armor);
+
+    /// Draws a weapon from its sheath into your hands, sheathing whatever was wielded before (if
+    /// anything). Returns null if the weapon isn't actually in your sheaths.
+    public Weapon? Wield(Weapon weapon)
+    {
+        if (!SheathedWeapons.Remove(weapon))
+            return null;
+
+        var previous = SheathCurrentWeapon();
+        Weapon = weapon;
+        return previous;
+    }
+
+    /// Sheaths whatever's currently wielded and falls back to bare hands. No-op (returns null) if
+    /// you're already unarmed. Also how the game auto-frees your hands when you acquire a new item.
+    public Weapon? SheathCurrentWeapon()
+    {
+        if (Weapon.IsUnarmed || _unarmedWeapon == null)
+            return null;
+
+        var sheathed = Weapon;
+        SheathedWeapons.Add(sheathed);
+        Weapon = _unarmedWeapon;
+        return sheathed;
+    }
+
+    public double UsedBackpackBulk => BackpackItems.Sum(i => i.Bulk);
+    public double FreeBackpackBulk => Backpack == null ? 0 : Math.Max(0, Backpack.Capacity - UsedBackpackBulk);
+
+    /// Fails if there's no backpack, or not enough room left in it.
+    public bool TryStoreInBackpack(Item item)
+    {
+        if (Backpack == null || item.Bulk > FreeBackpackBulk)
+            return false;
+
+        BackpackItems.Add(item);
+        return true;
+    }
 
     private readonly Queue<Skill> _queuedSkills = new();
     private readonly Dictionary<Skill, int> _cooldowns = new();

@@ -18,7 +18,8 @@
     "hit": 0,
     "damage": 0,
     "critChanceBonus": 0,
-    "critPower": 0
+    "critPower": 0,
+    "isUnarmed": true
   },
   "equippedArmor": []
 }

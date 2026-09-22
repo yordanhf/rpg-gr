@@ -10,7 +10,7 @@ internal static class CharacterLoader
     private static readonly JsonSerializerOptions Options = new()
     {
         PropertyNameCaseInsensitive = true,
-        Converters = { new RaceByIdConverter() }
+        Converters = { new RaceByIdConverter(), new JsonStringEnumConverter() }
     };
 
     // Race files describe the race itself, so they must not go through the id-to-race converter.

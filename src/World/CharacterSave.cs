@@ -31,13 +31,20 @@ public class CharacterSave
     public int Gold { get; init; }
 
     public required WeaponSave Weapon { get; init; }
+    public List<WeaponSave> SheathedWeapons { get; init; } = new();
     public List<ArmorSave> Armor { get; init; } = new();
+    public BackpackSave? Backpack { get; init; }
+    public List<ItemSave> BackpackItems { get; init; } = new();
 
     public record WeaponSave(string Name, double Hit, double Damage, double CritChanceBonus, double CritPower,
+        double Bulk, bool IsUnarmed, int Durability, int MaxDurability, bool HasBeenRepaired);
+
+    public record ArmorSave(string Name, double Absorb, double Deflect, HashSet<BodySlot> Slots, double Bulk,
         int Durability, int MaxDurability, bool HasBeenRepaired);
 
-    public record ArmorSave(string Name, double Absorb, double Deflect,
-        int Durability, int MaxDurability, bool HasBeenRepaired);
+    public record BackpackSave(string Name, double Capacity);
+
+    public record ItemSave(string Name, double Bulk, int Value);
 
     /// A character that is down (bleeding or dead) is saved as if bandaged: alive, at a fraction of max HP,
     /// because nobody would be around to help them while the game is closed.
@@ -66,12 +73,50 @@ public class CharacterSave
             Defense = player.Defense,
             Dodge = player.Dodge,
             Gold = player.Gold,
-            Weapon = new WeaponSave(player.Weapon.Name, player.Weapon.Hit, player.Weapon.Damage,
-                player.Weapon.CritChanceBonus, player.Weapon.CritPower,
-                player.Weapon.Durability, player.Weapon.MaxDurability, player.Weapon.HasBeenRepaired),
-            Armor = player.EquippedArmor.Select(a => new ArmorSave(a.Name, a.Absorb, a.Deflect,
-                a.Durability, a.MaxDurability, a.HasBeenRepaired)).ToList()
+            Weapon = ToWeaponSave(player.Weapon),
+            SheathedWeapons = player.SheathedWeapons.Select(ToWeaponSave).ToList(),
+            Armor = player.EquippedArmor.Select(ToArmorSave).ToList(),
+            Backpack = player.Backpack is { } bp ? new BackpackSave(bp.Name, bp.Capacity) : null,
+            BackpackItems = player.BackpackItems.Select(i => new ItemSave(i.Name, i.Bulk, i.Value)).ToList()
         };
+    }
+
+    private static WeaponSave ToWeaponSave(Weapon w) => new(w.Name, w.Hit, w.Damage, w.CritChanceBonus, w.CritPower,
+        w.Bulk, w.IsUnarmed, w.Durability, w.MaxDurability, w.HasBeenRepaired);
+
+    private static ArmorSave ToArmorSave(Armor a) => new(a.Name, a.Absorb, a.Deflect, a.Slots, a.Bulk,
+        a.Durability, a.MaxDurability, a.HasBeenRepaired);
+
+    private static Weapon FromWeaponSave(WeaponSave w)
+    {
+        var weapon = new Weapon
+        {
+            Name = w.Name,
+            Hit = w.Hit,
+            Damage = w.Damage,
+            CritChanceBonus = w.CritChanceBonus,
+            CritPower = w.CritPower,
+            Bulk = w.Bulk,
+            IsUnarmed = w.IsUnarmed,
+            MaxDurability = w.MaxDurability
+        };
+        weapon.RestoreDurability(w.Durability, w.HasBeenRepaired);
+        return weapon;
+    }
+
+    private static Armor FromArmorSave(ArmorSave a)
+    {
+        var armor = new Armor
+        {
+            Name = a.Name,
+            Absorb = a.Absorb,
+            Deflect = a.Deflect,
+            Slots = a.Slots,
+            Bulk = a.Bulk,
+            MaxDurability = a.MaxDurability
+        };
+        armor.RestoreDurability(a.Durability, a.HasBeenRepaired);
+        return armor;
     }
 
     public Combatant ToCombatant(Func<string, Race> findRace)
@@ -92,27 +137,12 @@ public class CharacterSave
             Attack = Attack,
             Defense = Defense,
             Dodge = Dodge,
-            Weapon = new Weapon
-            {
-                Name = Weapon.Name,
-                Hit = Weapon.Hit,
-                Damage = Weapon.Damage,
-                CritChanceBonus = Weapon.CritChanceBonus,
-                CritPower = Weapon.CritPower,
-                MaxDurability = Weapon.MaxDurability
-            },
-            EquippedArmor = Armor.Select(a => new Armor
-            {
-                Name = a.Name,
-                Absorb = a.Absorb,
-                Deflect = a.Deflect,
-                MaxDurability = a.MaxDurability
-            }).ToList()
+            Weapon = FromWeaponSave(Weapon),
+            SheathedWeapons = SheathedWeapons.Select(FromWeaponSave).ToList(),
+            EquippedArmor = Armor.Select(FromArmorSave).ToList(),
+            Backpack = Backpack is { } bp ? new Backpack { Name = bp.Name, Capacity = bp.Capacity } : null,
+            BackpackItems = BackpackItems.Select(i => new Item { Name = i.Name, Bulk = i.Bulk, Value = i.Value }).ToList()
         };
-
-        player.Weapon.RestoreDurability(Weapon.Durability, Weapon.HasBeenRepaired);
-        foreach (var (save, armor) in Armor.Zip(player.EquippedArmor))
-            armor.RestoreDurability(save.Durability, save.HasBeenRepaired);
 
         player.ResetHp();
         player.ResetMp();
