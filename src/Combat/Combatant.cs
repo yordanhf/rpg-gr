@@ -48,11 +48,28 @@ public class Combatant
     /// On the ground (bleeding or dead): can't attack or act.
     public bool IsDown => State != LifeState.Alive;
 
-    /// Sum of Absorb across all equipped armor, capped at CombatConstants.MaxArmorPoolTotal.
-    public double TotalAbsorb => Math.Min(CombatConstants.MaxArmorPoolTotal, EquippedArmor.Sum(a => a.Absorb));
+    /// Sum of Absorb across all equipped armor (broken pieces contribute 0), capped at CombatConstants.MaxArmorPoolTotal.
+    public double TotalAbsorb => Math.Min(CombatConstants.MaxArmorPoolTotal, EquippedArmor.Sum(a => a.EffectiveAbsorb));
 
-    /// Sum of Deflect across all equipped armor, capped at CombatConstants.MaxArmorPoolTotal.
-    public double TotalDeflect => Math.Min(CombatConstants.MaxArmorPoolTotal, EquippedArmor.Sum(a => a.Deflect));
+    /// Sum of Deflect across all equipped armor (broken pieces contribute 0), capped at CombatConstants.MaxArmorPoolTotal.
+    public double TotalDeflect => Math.Min(CombatConstants.MaxArmorPoolTotal, EquippedArmor.Sum(a => a.EffectiveDeflect));
+
+    public int Gold { get; private set; }
+
+    public void AddGold(int amount) => Gold += Math.Max(0, amount);
+
+    /// Returns false (refuses) if there isn't enough gold to spend.
+    public bool SpendGold(int amount)
+    {
+        if (amount < 0 || amount > Gold)
+            return false;
+
+        Gold -= amount;
+        return true;
+    }
+
+    /// Sets the gold balance read back from a save file.
+    public void RestoreGold(int amount) => Gold = Math.Max(0, amount);
 
     private readonly Queue<Skill> _queuedSkills = new();
     private readonly Dictionary<Skill, int> _cooldowns = new();

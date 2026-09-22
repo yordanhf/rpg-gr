@@ -18,7 +18,7 @@ public static class AttackResolver
         var customEmotes = attacker.Weapon.CustomEmotes;
 
         double offenseAcc = attacker.EffectiveStat(StatType.Coordination) + attacker.EffectiveStat(StatType.Aim)
-            + attacker.Weapon.Hit + offenseAccuracyBonus;
+            + attacker.Weapon.EffectiveHit + offenseAccuracyBonus;
         double defenseAcc = defender.EffectiveStat(StatType.Agility) + defender.EffectiveStat(StatType.Dodge)
             + defender.TotalDeflect;
         double hitChance = offenseAcc / (offenseAcc + defenseAcc);
@@ -29,7 +29,13 @@ public static class AttackResolver
             return HitResult.Miss(missVariant.Format(attacker.Name, defender.Name, attacker.IsPlayer));
         }
 
-        double critChance = Math.Clamp(CombatConstants.BaseCritChance + attacker.Weapon.CritChanceBonus, 0, 1);
+        // A landed hit wears down the attacker's weapon and every piece of the defender's armor,
+        // flat -1 durability each regardless of tier (rule 8quinquies).
+        attacker.Weapon.Degrade();
+        foreach (var piece in defender.EquippedArmor)
+            piece.Degrade();
+
+        double critChance = Math.Clamp(CombatConstants.BaseCritChance + attacker.Weapon.EffectiveCritChanceBonus, 0, 1);
         bool crit = rng.NextDouble() < critChance;
 
         int damage = crit
@@ -47,7 +53,7 @@ public static class AttackResolver
     private static int RollNormalDamage(Combatant attacker, Combatant defender, double offenseDamageBonus, IRandomSource rng)
     {
         double offense = attacker.EffectiveStat(StatType.Strength) + attacker.EffectiveStat(StatType.Attack)
-            + attacker.Weapon.Damage + offenseDamageBonus;
+            + attacker.Weapon.EffectiveDamage + offenseDamageBonus;
         double defense = defender.EffectiveStat(StatType.Constitution) + defender.EffectiveStat(StatType.Defense)
             + defender.TotalAbsorb;
 
@@ -75,7 +81,7 @@ public static class AttackResolver
 
     private static int RollCriticalDamage(Weapon weapon, IRandomSource rng)
     {
-        double critPos = Math.Clamp(weapon.CritPower / 100.0, 0, 1);
+        double critPos = Math.Clamp(weapon.EffectiveCritPower / 100.0, 0, 1);
 
         // Usually clusters around the weapon's own crit power, but ~10% of crits ignore it entirely
         // so even a top weapon can occasionally land a weak (31) critical hit.

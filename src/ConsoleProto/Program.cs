@@ -5,7 +5,7 @@ using World;
 const int NpcRespawnSeconds = 30;
 const string HelpLine =
     "Commands: create, continue, look [target], north/south/east/west/up/down (n/s/e/w/u/d), kill <target>, shape [target], " +
-    "bandage [target], simulate [rounds] [npc], reset, flee (or stop), listk, quit";
+    "bandage [target], gold, simulate [rounds] [npc], reset, flee (or stop), listk, quit";
 
 var rng = new SystemRandomSource();
 var world = new WorldState(WorldLoader.Load(), CharacterLoader.LoadNpc);
@@ -72,6 +72,10 @@ while (true)
 
         case "shape":
             HandleShape(parts);
+            break;
+
+        case "gold":
+            HandleGold();
             break;
 
         case "simulate":
@@ -442,6 +446,14 @@ void HandleShape(string[] parts)
         Console.WriteLine(DescribeCondition(activeNpc));
     else
         Console.WriteLine("You're not in combat.");
+}
+
+void HandleGold()
+{
+    if (!RequirePlayer())
+        return;
+
+    Console.WriteLine(player!.Gold == 1 ? "You have 1 gold." : $"You have {player!.Gold} gold.");
 }
 
 void HandleSimulate(string[] parts)

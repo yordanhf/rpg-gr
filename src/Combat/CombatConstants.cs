@@ -33,4 +33,8 @@ public static class CombatConstants
     /// offense/defense ratio moved the needle before, which let two equally weak fighters trade
     /// Massacre-tier hits.
     public const double ReferenceMaxOffense = 300;
+
+    /// Every weapon/armor piece starts with this many durability points and loses 1 per hit it's
+    /// involved in (landed for a weapon, taken for armor) — flat, regardless of the hit's tier.
+    public const int MaxDurability = 1000;
 }

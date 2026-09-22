@@ -28,12 +28,16 @@ public class CharacterSave
     public required double Defense { get; init; }
     public required double Dodge { get; init; }
 
+    public int Gold { get; init; }
+
     public required WeaponSave Weapon { get; init; }
     public List<ArmorSave> Armor { get; init; } = new();
 
-    public record WeaponSave(string Name, double Hit, double Damage, double CritChanceBonus, double CritPower);
+    public record WeaponSave(string Name, double Hit, double Damage, double CritChanceBonus, double CritPower,
+        int Durability, int MaxDurability, bool HasBeenRepaired);
 
-    public record ArmorSave(string Name, double Absorb, double Deflect);
+    public record ArmorSave(string Name, double Absorb, double Deflect,
+        int Durability, int MaxDurability, bool HasBeenRepaired);
 
     /// A character that is down (bleeding or dead) is saved as if bandaged: alive, at a fraction of max HP,
     /// because nobody would be around to help them while the game is closed.
@@ -61,9 +65,12 @@ public class CharacterSave
             Attack = player.Attack,
             Defense = player.Defense,
             Dodge = player.Dodge,
+            Gold = player.Gold,
             Weapon = new WeaponSave(player.Weapon.Name, player.Weapon.Hit, player.Weapon.Damage,
-                player.Weapon.CritChanceBonus, player.Weapon.CritPower),
-            Armor = player.EquippedArmor.Select(a => new ArmorSave(a.Name, a.Absorb, a.Deflect)).ToList()
+                player.Weapon.CritChanceBonus, player.Weapon.CritPower,
+                player.Weapon.Durability, player.Weapon.MaxDurability, player.Weapon.HasBeenRepaired),
+            Armor = player.EquippedArmor.Select(a => new ArmorSave(a.Name, a.Absorb, a.Deflect,
+                a.Durability, a.MaxDurability, a.HasBeenRepaired)).ToList()
         };
     }
 
@@ -91,15 +98,27 @@ public class CharacterSave
                 Hit = Weapon.Hit,
                 Damage = Weapon.Damage,
                 CritChanceBonus = Weapon.CritChanceBonus,
-                CritPower = Weapon.CritPower
+                CritPower = Weapon.CritPower,
+                MaxDurability = Weapon.MaxDurability
             },
-            EquippedArmor = Armor.Select(a => new Armor { Name = a.Name, Absorb = a.Absorb, Deflect = a.Deflect }).ToList()
+            EquippedArmor = Armor.Select(a => new Armor
+            {
+                Name = a.Name,
+                Absorb = a.Absorb,
+                Deflect = a.Deflect,
+                MaxDurability = a.MaxDurability
+            }).ToList()
         };
+
+        player.Weapon.RestoreDurability(Weapon.Durability, Weapon.HasBeenRepaired);
+        foreach (var (save, armor) in Armor.Zip(player.EquippedArmor))
+            armor.RestoreDurability(save.Durability, save.HasBeenRepaired);
 
         player.ResetHp();
         player.ResetMp();
         player.RestoreHp(CurrentHp);
         player.RestoreMp(CurrentMp);
+        player.RestoreGold(Gold);
         return player;
     }
 }
