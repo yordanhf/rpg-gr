@@ -14,13 +14,23 @@ internal sealed class JsonCharacterStore : ICharacterStore
 
     public bool Exists(string name) => PathFor(name) is { } path && File.Exists(path);
 
+    /// Null both when there's no such save and when the file exists but won't parse (an incompatible
+    /// or corrupted save) — either way there's nothing usable to load, and the caller already has a
+    /// message for "no such character" that covers both without crashing the whole program.
     public CharacterSave? Load(string name)
     {
         var path = PathFor(name);
         if (path == null || !File.Exists(path))
             return null;
 
-        return JsonSerializer.Deserialize<CharacterSave>(File.ReadAllText(path), Options);
+        try
+        {
+            return JsonSerializer.Deserialize<CharacterSave>(File.ReadAllText(path), Options);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     public void Save(CharacterSave save)

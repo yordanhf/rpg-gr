@@ -17,7 +17,11 @@ public class CharacterSave
 
     public required string Name { get; init; }
     public required string RaceId { get; init; }
-    public required string ProfessionId { get; init; }
+
+    /// Added after some characters already existed; defaults to "civilian" (the only profession so
+    /// far) so a save from before this field existed still loads instead of crashing `continue`.
+    public string ProfessionId { get; init; } = "civilian";
+
     public required string RoomId { get; init; }
 
     public int Level { get; init; } = 1;

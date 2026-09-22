@@ -204,7 +204,9 @@ void HandleContinue()
     var save = store.Load(name);
     if (save == null)
     {
-        Console.WriteLine("There is no saved character by that name.");
+        Console.WriteLine(store.Exists(name)
+            ? "That character's save file couldn't be read (corrupted or from an incompatible version)."
+            : "There is no saved character by that name.");
         return;
     }
 
