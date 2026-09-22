@@ -25,6 +25,6 @@
   },
   "equippedArmor": [],
   "loot": [
-    { "name": "a rat pelt", "bulk": 0.25, "value": 1 }
+    { "name": "a rat pelt", "bulk": 0.25, "value": 8 }
   ]
 }
