@@ -193,18 +193,39 @@ HitResult ResolveAttack(Combatant atk, Combatant def) {
 
 - El player actual es `human` (placeholder, aún no hay creación de personaje). Ojo: con stats base ~20, un 10% son solo +2 puntos; el efecto crece con stats altos.
 
-### Niveles, profesiones y títulos (DECIDIDO e implementado)
+### Niveles, entrenamiento, profesiones y títulos (DECIDIDO e implementado)
 - **Subir de nivel exige DOS cosas a la vez**: experiencia suficiente **y** un promedio suficiente de los **5 stats base** (Strength/Constitution/Agility/Coordination/Intelligence — las 4 skills NO cuentan, esas se entrenan aparte y son propias de cada profesión). El promedio usa los stats **base** (sin raza ni buffs) — así un buff temporal no puede "destrabar" un nivel que luego se pierde al pasar el buff.
   - XP: nivel 2 = 500, cada nivel siguiente = el anterior × 1.33 (`Leveling.ExperienceRequired`).
   - Promedio de stats: 25 en nivel 2, +5 por nivel (`15 + 5×nivel`, `Leveling.RequiredStatAverage`) — nivel 3=30, nivel 4=35, nivel 5=40, etc.
-  - `Combatant.Level` (arranca en 1), evento `OnLevelUp` (puede dispararse varias veces seguidas si una sola ganancia de XP cruza más de un umbral). `AddExperience` revisa subida de nivel automáticamente; al cargar un save, `RestoreLevel` fija el nivel guardado **sin** re-derivarlo de la XP (el nivel persistido es la fuente de verdad, para que un cambio futuro de fórmula no re-nivele personajes viejos).
-  - **Ahora mismo casi nunca se cumplirá el requisito de stats** porque no existe todavía el entrenamiento de stats base (solo las skills se entrenarán, y esas no cuentan para el nivel) — el mecanismo ya está listo, solo falta la forma de subir stats base.
+  - **Ya NO sube de nivel solo (cambiado):** `AddExperience` solo acumula XP, no revisa nada. Subir de nivel es una acción manual, `Combatant.TryLevelUp(out error)`, y **solo funciona en presencia de un entrenador** (comando `levelup`, exige `Room.Trainer != null`; el chequeo de "estar en la sala del entrenador" es cosa de `Program.cs`, `Combat` no sabe de habitaciones). Sube **un nivel por llamada** — si tienes XP para varios de golpe, hay que llamar `levelup` varias veces.
+  - **Niveles redondos (5, 10, 15, 20) bloquean el avance** más allá de ellos hasta completar una "tarea especial" — sistema de tareas **no implementado todavía**, así que por ahora es un muro duro: no se puede pasar de nivel 5 a 6 (ni 10→11, etc.) de ninguna forma. `Combatant.TryLevelUp` lo rechaza con un mensaje explícito.
+  - `Combatant.Level` (arranca en 1), evento `OnLevelUp`. Al cargar un save, `RestoreLevel` fija el nivel guardado **sin** re-derivarlo de la XP (el nivel persistido es la fuente de verdad, para que un cambio futuro de fórmula no re-nivele personajes viejos).
 - **Experiencia (recordatorio, ya implementado antes):** cada golpe del jugador da XP = daño hecho; matar da un bono plano = HP máximo del NPC. `Combatant.Experience`, se persiste.
+- **Entrenamiento de stats/skills (DECIDIDO e implementado):** `src/Combat/Training.cs`. Cuesta gold por punto, **1-10 = 10 gold/punto**, y cada bracket de 10 siguiente ×1.33 el precio del anterior:
+
+  | Bracket | Puntos | Gold/punto | Acumulado desde 0 |
+  |---|---|---|---|
+  | 0 | 1-10 | 10 | 100 |
+  | 1 | 11-20 | 13 | 230 |
+  | 2 | 21-30 | 18 | 410 |
+  | 3 | 31-40 | 24 | 650 |
+  | 4 | 41-50 | 31 | 960 |
+  | 5 | 51-60 | 42 | 1380 |
+  | 6 | 61-70 | 55 | 1930 |
+  | 7 | 71-80 | 74 | 2670 |
+  | 8 | 81-90 | 98 | 3650 |
+  | 9 | 91-100 | 130 | 4950 |
+
+  Números tal cual los dio el desarrollador; **ya avisó que probablemente sea muy agresivo al final** (130 gold/punto, ~5000 gold de 0 a 100) y se balanceará después.
+  - **Tope por nivel:** ningún stat ni skill se puede entrenar por encima de `30 + 5×nivel` (`Training.MaxTrainableValue`) — 3 niveles de margen por encima de lo que exigiría el nivel actual. A nivel 1: tope 35 (ej. del desarrollador, confirmado).
+  - Se entrena en **`src/Combat/Combatant.cs`**: los 9 stats/skills base pasaron de `init` a mutables (siguen siendo `required` para la carga JSON/save, solo que ahora también se pueden cambiar después). `Combatant.TryTrain(stat, puntos, out error)` cobra y sube; `TrainingCap`/`TrainingCostFor`/`BaseStat` para consultar sin gastar.
+- **Entrenador (DECIDIDO e implementado):** `World.Trainer` (paralelo a `Shop`/`Healer`), en **Millford Training Yard** (abajo, `down`, desde la plaza). Entrena los 9 stats/skills genéricos (no hay skills propias de profesión todavía) y es quien aplica el `levelup`. `Trainer.ProfessionId` existe para cuando haya entrenadores por profesión (a futuro, cuando dejen de ser todos `civilian`), pero no se usa todavía. `look` al entrenador (o `look trainer`), o el comando `train` sin argumentos, muestran el menú completo (valor actual, costo del siguiente punto, tope); `train <stat> [cantidad]` (cantidad por defecto 1) entrena de verdad.
+- **Comando `score` (DECIDIDO e implementado):** muestra la ficha completa del jugador — nombre/raza/título/nivel, XP (y cuánta falta para el siguiente nivel), HP/MP/Gold, y los 9 stats/skills base.
 - **Profesiones (DECIDIDO e implementado, sin skills de profesión todavía):** `Profession` (`src/Combat/Profession.cs`, `data/professions/<id>.json`), mismo patrón que `Race`. Por ahora **todos son `civilian`** (`data/professions/civilian.json`). Una profesión no afecta el nivel (eso depende solo de XP + stats) — **solo determina el título** del personaje según su nivel.
   - `Profession.Titles`: lista de brackets `{minLevel, maxLevel, title}`. `Combatant.Title` = el bracket que matchea el nivel actual, o el nombre plano de la profesión si no hay bracket (ej. nivel 21+, sin bracket definido).
   - **Títulos de `civilian` (placeholders genéricos, pendientes de que el desarrollador ponga los definitivos):** 1-4 *Villager*, 5-9 *Freeholder*, 10-14 *Elder*, 15-19 *Notable*, 20 *Luminary*. **Más de 20: sin bracket** — los títulos ahí se piensan personalizados por personaje (no implementado), así que cae al nombre plano `"Civilian"`.
   - **Mismos títulos para todas las razas por ahora** — a futuro se plantea dividir por "tipo de raza" (ej. orcos vs. elfos/humanos/enanos no comparten título), el esquema ya lo permite sin rediseño (solo hay que ampliar `Profession`/los JSON cuando toque).
-  - Formato de display: `"{Nombre} the {raza} {título}"` (ej. *"Pepe the orc Villager"*, calcando el ejemplo `"Pepe the orc marauder of the horde"` que dio el desarrollador). Se usa en `create`, `look me`, `xp` y el anuncio de subida de nivel.
+  - Formato de display: `"{Nombre} the {raza} {título}"` (ej. *"Pepe the orc Villager"*, calcando el ejemplo `"Pepe the orc marauder of the horde"` que dio el desarrollador). Se usa en `create`, `look me`, `score` y el anuncio de subida de nivel.
 
 ### Fórmulas (DECIDIDAS)
 ```
