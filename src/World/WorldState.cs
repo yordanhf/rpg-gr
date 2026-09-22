@@ -8,6 +8,8 @@ public class WorldState
 {
     private readonly Func<string, Combatant?> _createNpc;
     private readonly Dictionary<string, List<Combatant>> _occupants = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, List<Corpse>> _corpses = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, List<Item>> _groundItems = new(StringComparer.OrdinalIgnoreCase);
 
     public WorldMap Map { get; }
 
@@ -65,5 +67,60 @@ public class WorldState
             }
         }
         return null;
+    }
+
+    public IReadOnlyList<Corpse> CorpsesIn(Room room)
+    {
+        lock (_corpses)
+            return _corpses.TryGetValue(room.Id, out var list) ? list.ToArray() : Array.Empty<Corpse>();
+    }
+
+    public IReadOnlyList<Item> ItemsOnGround(Room room)
+    {
+        lock (_groundItems)
+            return _groundItems.TryGetValue(room.Id, out var list) ? list.ToArray() : Array.Empty<Item>();
+    }
+
+    public void AddCorpse(string roomId, Corpse corpse)
+    {
+        lock (_corpses)
+        {
+            if (!_corpses.TryGetValue(roomId, out var list))
+                _corpses[roomId] = list = new List<Corpse>();
+            list.Add(corpse);
+        }
+    }
+
+    /// Called when a corpse fades: takes it off the room, its remaining loot spills onto the floor
+    /// (open to anyone — loot rights only apply to the corpse itself).
+    public void FadeCorpse(string roomId, Corpse corpse)
+    {
+        lock (_corpses)
+        {
+            if (_corpses.TryGetValue(roomId, out var list))
+                list.Remove(corpse);
+        }
+
+        if (corpse.Loot.Count > 0)
+            DropItems(roomId, corpse.Loot);
+    }
+
+    public void DropItems(string roomId, IEnumerable<Item> items)
+    {
+        lock (_groundItems)
+        {
+            if (!_groundItems.TryGetValue(roomId, out var list))
+                _groundItems[roomId] = list = new List<Item>();
+            list.AddRange(items);
+        }
+    }
+
+    public void RemoveFromGround(string roomId, Item item)
+    {
+        lock (_groundItems)
+        {
+            if (_groundItems.TryGetValue(roomId, out var list))
+                list.Remove(item);
+        }
     }
 }

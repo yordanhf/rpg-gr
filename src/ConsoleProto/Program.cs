@@ -6,7 +6,7 @@ const int NpcRespawnSeconds = 30;
 const string HelpLine =
     "Commands: create, continue, look [target], north/south/east/west/up/down (n/s/e/w/u/d), kill <target>, shape [target], " +
     "bandage [target], wield <weapon|shield>, sheath [weapon], wear <armor>, remove <armor>, hands, i (or inventory), gold, " +
-    "list, buy <item>, simulate [rounds] [npc], reset, flee (or stop), listk, quit";
+    "take/get/loot <item>, list, buy <item>, simulate [rounds] [npc], reset, flee (or stop), listk, quit";
 
 var rng = new SystemRandomSource();
 var world = new WorldState(WorldLoader.Load(), CharacterLoader.LoadNpc);
@@ -97,6 +97,12 @@ while (true)
 
         case "hands":
             HandleHands();
+            break;
+
+        case "take":
+        case "get":
+        case "loot":
+            HandleTake(parts);
             break;
 
         case "list":
@@ -193,7 +199,7 @@ void EnterWorld(Combatant character, Room room)
     pendingMove = null;
 
     Console.WriteLine();
-    RoomView.Write(room, world.NpcsIn(room));
+    RoomView.Write(room, world);
 }
 
 // Characters are only written when leaving the game, never mid-session.
@@ -243,7 +249,7 @@ void HandleLook(string[] parts)
     var words = parts.Skip(1).Where((w, i) => !(i == 0 && w.Equals("at", StringComparison.OrdinalIgnoreCase))).ToArray();
     if (words.Length == 0)
     {
-        RoomView.Write(room, world.NpcsIn(room));
+        RoomView.Write(room, world);
         return;
     }
 
@@ -261,6 +267,24 @@ void HandleLook(string[] parts)
     {
         Console.WriteLine(npc.Description.Length > 0 ? npc.Description : $"You see nothing special about {npc.Name}.");
         Console.WriteLine(DescribeCondition(npc));
+        return;
+    }
+
+    var corpse = world.CorpsesIn(room).FirstOrDefault(c => c.Name.Contains(query, StringComparison.OrdinalIgnoreCase));
+    if (corpse != null)
+    {
+        Console.WriteLine(corpse.Loot.Count == 0
+            ? $"{Text.Cap(corpse.Name)}. There is nothing left to take from it."
+            : corpse.CanLoot(player!.Name)
+                ? $"{Text.Cap(corpse.Name)}. You could take: {string.Join(", ", corpse.Loot.Select(i => i.Name))}."
+                : $"{Text.Cap(corpse.Name)}. You didn't earn the right to loot it.");
+        return;
+    }
+
+    var groundItem = world.ItemsOnGround(room).FirstOrDefault(i => i.Name.Contains(query, StringComparison.OrdinalIgnoreCase));
+    if (groundItem != null)
+    {
+        Console.WriteLine($"{Text.Cap(groundItem.Name)}. You could take it.");
         return;
     }
 
@@ -302,20 +326,32 @@ void MovePlayer(Direction direction)
         return;
 
     playerRoom = destination;
-    LineEditor.Print(() => RoomView.Write(destination, world.NpcsIn(destination)));
+    LineEditor.Print(() => RoomView.Write(destination, world));
 }
 
-// A dead NPC leaves the room and comes back at its spawn point after a while.
+// A dead NPC leaves its corpse behind (lootable only by whoever fought it, see Combatant.LootRights)
+// for NpcRespawnSeconds. Then the corpse fades — its loot spills onto the floor for anyone — and the
+// NPC respawns at the same moment.
 void OnNpcDied(Combatant npc)
 {
     var roomId = world.Remove(npc);
-    if (roomId != null)
-        _ = RespawnAsync(roomId, npc.Id);
+    if (roomId == null)
+        return;
+
+    var corpse = new Corpse
+    {
+        Name = $"the corpse of {npc.Name}",
+        Loot = npc.Loot,
+        LootRights = npc.LootRights
+    };
+    world.AddCorpse(roomId, corpse);
+    _ = FadeCorpseAndRespawnAsync(roomId, corpse, npc.Id);
 }
 
-async Task RespawnAsync(string roomId, string npcId)
+async Task FadeCorpseAndRespawnAsync(string roomId, Corpse corpse, string npcId)
 {
     await Task.Delay(NpcRespawnSeconds * 1000);
+    world.FadeCorpse(roomId, corpse);
     world.Spawn(roomId, npcId);
 }
 
@@ -365,6 +401,7 @@ void HandleKill(string[] parts)
     }
 
     activeNpc = npc;
+    npc.GrantLootRights(player!.Name);
 
     // Player typed "kill" -> keeps initiative every round.
     var engine = new CombatEngine(player!, npc, rng);
@@ -480,6 +517,79 @@ void HandleShape(string[] parts)
         Console.WriteLine(DescribeCondition(activeNpc));
     else
         Console.WriteLine("You're not in combat.");
+}
+
+// Corpses first (loot-rights gated), then the room floor (open to anyone). Also auto-sheaths a
+// wielded weapon, same as buying — you need a free hand to take hold of something new.
+void HandleTake(string[] parts)
+{
+    if (!RequirePlayer() || !PlayerCanAct())
+        return;
+
+    if (parts.Length < 2)
+    {
+        Console.WriteLine("Take what?");
+        return;
+    }
+
+    var name = string.Join(' ', parts.Skip(1));
+    var room = playerRoom!;
+
+    Corpse? sourceCorpse = null;
+    Item? item = null;
+
+    foreach (var corpse in world.CorpsesIn(room))
+    {
+        var match = corpse.Loot.FirstOrDefault(i => i.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+        if (match == null)
+            continue;
+
+        if (!corpse.CanLoot(player!.Name))
+        {
+            Console.WriteLine($"You didn't earn the right to loot {corpse.Name}.");
+            return;
+        }
+
+        sourceCorpse = corpse;
+        item = match;
+        break;
+    }
+
+    bool fromGround = false;
+    if (item == null)
+    {
+        item = world.ItemsOnGround(room).FirstOrDefault(i => i.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+        fromGround = item != null;
+    }
+
+    if (item == null)
+    {
+        Console.WriteLine("You don't see that here.");
+        return;
+    }
+
+    if (player!.Backpack == null)
+    {
+        Console.WriteLine("You have nothing to carry that in.");
+        return;
+    }
+
+    if (!player.TryStoreInBackpack(item))
+    {
+        Console.WriteLine("Your backpack is full.");
+        return;
+    }
+
+    if (sourceCorpse != null)
+        sourceCorpse.Loot.Remove(item);
+    else if (fromGround)
+        world.RemoveFromGround(room.Id, item);
+
+    var sheathed = player.SheathCurrentWeapon();
+    if (sheathed != null)
+        Console.WriteLine($"You sheath your {sheathed.Name}.");
+
+    Console.WriteLine($"You take {item.Name}.");
 }
 
 void HandleListShop()
@@ -752,8 +862,13 @@ void HandleHands()
 
     Console.WriteLine(held.Count == 0
         ? "Your hands are empty."
-        : $"You are holding: {string.Join(", ", held)} ({player.UsedHandBulk} of {CombatConstants.HandCapacity} hand space).");
+        : $"You are holding: {string.Join(", ", held)} ({FormatBulk(player.UsedHandBulk)} of {FormatBulk(CombatConstants.HandCapacity)} hand space).");
 }
+
+// Bulk numbers are always displayed with an invariant "." decimal point, regardless of the host
+// machine's locale — this is an English-only game (see CLAUDE.md), so output shouldn't vary by OS
+// region settings the way plain string interpolation of a double would.
+static string FormatBulk(double value) => value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
 
 void HandleInventory()
 {
@@ -777,7 +892,7 @@ void HandleInventory()
 
     if (player.Backpack is { } backpack)
     {
-        Console.WriteLine($"{backpack.Name} ({player.UsedBackpackBulk}/{backpack.Capacity} bulk):");
+        Console.WriteLine($"{backpack.Name} ({FormatBulk(player.UsedBackpackBulk)}/{FormatBulk(backpack.Capacity)} bulk):");
         if (player.BackpackItems.Count == 0)
             Console.WriteLine("  (empty)");
         else

@@ -11,7 +11,7 @@ internal static class Text
 /// How a room is shown to the player (`look`, and after moving).
 internal static class RoomView
 {
-    public static void Write(Room room, IReadOnlyList<Combatant> npcs)
+    public static void Write(Room room, WorldState world)
     {
         var previous = Console.ForegroundColor;
         Console.ForegroundColor = ConsoleColor.Cyan;
@@ -26,11 +26,17 @@ internal static class RoomView
         if (room.Shop != null)
             Console.WriteLine("You can buy goods here. Try: list");
 
-        foreach (var npc in npcs)
+        foreach (var npc in world.NpcsIn(room))
         {
             Console.WriteLine(npc.IsBleeding
                 ? $"{Text.Cap(npc.Name)} is lying here, bleeding and in need of bandages."
                 : $"{Text.Cap(npc.Name)} is here.");
         }
+
+        foreach (var corpse in world.CorpsesIn(room))
+            Console.WriteLine($"{Text.Cap(corpse.Name)} lies here.");
+
+        foreach (var item in world.ItemsOnGround(room))
+            Console.WriteLine($"{Text.Cap(item.Name)} lies on the ground.");
     }
 }

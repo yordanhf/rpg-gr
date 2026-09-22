@@ -53,6 +53,16 @@ public class Combatant
     public Backpack? Backpack { get; set; }
     public List<Item> BackpackItems { get; init; } = new();
 
+    /// What this NPC drops on death (e.g. a pelt) — stays on its corpse, not the room floor, until
+    /// the corpse fades. Irrelevant for the player.
+    public List<Item> Loot { get; init; } = new();
+
+    /// Names of whoever fought this NPC (not just the killing blow) — only they may loot its corpse
+    /// while it's still fresh. Everyone can once the corpse fades and the loot hits the floor.
+    public HashSet<string> LootRights { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public void GrantLootRights(string name) => LootRights.Add(name);
+
     // Base stats and skills, normally 0-100 (buffs can push the effective value up to CombatConstants.MaxEffectiveStat).
     public required double Strength { get; init; }
     public required double Constitution { get; init; }

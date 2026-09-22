@@ -22,5 +22,8 @@
     "critPower": 0,
     "isUnarmed": true
   },
-  "equippedArmor": []
+  "equippedArmor": [],
+  "loot": [
+    { "name": "a deer hide", "bulk": 0.5, "value": 3 }
+  ]
 }

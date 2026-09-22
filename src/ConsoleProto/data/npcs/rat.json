@@ -22,5 +22,8 @@
     "critPower": 0,
     "isUnarmed": true
   },
-  "equippedArmor": []
+  "equippedArmor": [],
+  "loot": [
+    { "name": "a rat pelt", "bulk": 0.25, "value": 1 }
+  ]
 }
