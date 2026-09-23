@@ -62,4 +62,8 @@ public static class CombatConstants
     /// Passive regen: this many HP *and* MP tick back on their own, on a timer the console prototype
     /// drives (see RegenTickSeconds in Program.cs — pure real-time pacing, so it lives outside Combat).
     public const int RegenAmountPerTick = 1;
+
+    /// Fully mending a broken item (0 durability) costs this fraction of its Value; less if it's only
+    /// partially worn, scaled by how much durability is actually missing (see Program.cs RepairCost).
+    public const double RepairCostFraction = 0.5;
 }

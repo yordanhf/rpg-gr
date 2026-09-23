@@ -8,7 +8,7 @@ const int RegenTickSeconds = 30; // passive HP/MP regen: +CombatConstants.RegenA
 const string HelpLine =
     "Commands: create, continue, look [target], north/south/east/west/up/down (n/s/e/w/u/d), kill <target>, shape [target], " +
     "bandage [target], wield <weapon|shield>, sheath [weapon], wear <armor>, remove <armor>, hands, i (or inventory), gold, xp, " +
-    "score, take/get/loot <item>, list, buy <item>, sell <item>, heal, train [stat] [amount], levelup, " +
+    "score, take/get/loot <item>, list, buy <item>, sell <item>, heal, train [stat] [amount], levelup, repair [item], condition <item>, " +
     "simulate [rounds] [npc], reset, flee (or stop), listk, quit";
 
 var rng = new SystemRandomSource();
@@ -104,6 +104,14 @@ while (true)
 
         case "levelup":
             HandleLevelUp();
+            break;
+
+        case "repair":
+            HandleRepair(parts);
+            break;
+
+        case "condition":
+            HandleCondition(parts);
             break;
 
         case "wield":
@@ -334,6 +342,13 @@ void HandleLook(string[] parts)
         || room.Trainer.Name.Contains(query, StringComparison.OrdinalIgnoreCase)))
     {
         ShowTrainingMenu(room.Trainer);
+        return;
+    }
+
+    if (room.Blacksmith != null && (query.Equals("blacksmith", StringComparison.OrdinalIgnoreCase)
+        || room.Blacksmith.Name.Contains(query, StringComparison.OrdinalIgnoreCase)))
+    {
+        ShowBlacksmithMenu(room.Blacksmith);
         return;
     }
 
@@ -1051,6 +1066,167 @@ void ShowTrainingMenu(Trainer trainer)
     }
 }
 
+// `repair` alone shows the menu (also reachable via `look <blacksmith>`); `repair <item>` actually
+// pays and mends it. Finds the item across everything the player could plausibly hand over: the
+// weapon in hand (unless it's a natural one, which has no blacksmith to visit), sheathed weapons,
+// worn armor, and armor held but not worn.
+void HandleRepair(string[] parts)
+{
+    if (!RequirePlayer() || !PlayerCanAct())
+        return;
+
+    var blacksmith = playerRoom?.Blacksmith;
+    if (blacksmith == null)
+    {
+        Console.WriteLine("There is no blacksmith here.");
+        return;
+    }
+
+    if (parts.Length < 2)
+    {
+        ShowBlacksmithMenu(blacksmith);
+        return;
+    }
+
+    var name = string.Join(' ', parts.Skip(1));
+    var item = FindOwnDurable(name);
+    if (item == null)
+    {
+        Console.WriteLine("You don't have that.");
+        return;
+    }
+
+    if (item.HasBeenRepaired)
+    {
+        Console.WriteLine($"{item.Name} has already been mended once — the blacksmith won't touch it again.");
+        return;
+    }
+
+    if (item.Durability >= item.MaxDurability)
+    {
+        Console.WriteLine($"{item.Name} doesn't need any repairs.");
+        return;
+    }
+
+    int cost = RepairCost(item);
+    if (player!.Gold < cost)
+    {
+        Console.WriteLine($"The blacksmith wants {cost} gold for that — you don't have enough.");
+        return;
+    }
+
+    player.SpendGold(cost);
+    item.Repair();
+    Console.WriteLine($"The blacksmith mends {item.Name} for {cost} gold. Good as new — though they won't be able to fix it a second time.");
+}
+
+// Works anywhere, not just at the blacksmith: it's just you checking your own gear.
+void HandleCondition(string[] parts)
+{
+    if (!RequirePlayer())
+        return;
+
+    if (parts.Length < 2)
+    {
+        Console.WriteLine("Check the condition of what? Try: condition sword");
+        return;
+    }
+
+    var name = string.Join(' ', parts.Skip(1));
+    var item = FindOwnDurable(name);
+    if (item == null)
+    {
+        Console.WriteLine("You don't have that.");
+        return;
+    }
+
+    Console.WriteLine(item.IsBroken
+        ? $"{item.Name} is broken. It's useless until a blacksmith repairs it."
+        : $"{item.Name} is in {DescribeItemCondition(item)}.");
+
+    if (item.HasBeenRepaired)
+        Console.WriteLine("It's already been mended once — no blacksmith will touch it again.");
+}
+
+void ShowBlacksmithMenu(Blacksmith blacksmith)
+{
+    Console.WriteLine($"-- {blacksmith.Name} --");
+
+    var items = GetAllOwnDurables().ToList();
+    if (items.Count == 0)
+    {
+        Console.WriteLine("You have nothing that could need repairs.");
+        return;
+    }
+
+    foreach (var item in items)
+    {
+        if (item.HasBeenRepaired)
+            Console.WriteLine($"  {item.Name} — already mended once, can't be repaired again.");
+        else if (item.Durability >= item.MaxDurability)
+            Console.WriteLine($"  {item.Name} — pristine condition, nothing to repair.");
+        else
+            Console.WriteLine($"  {item.Name} — {DescribeItemCondition(item)}, repair costs {RepairCost(item)} gold.");
+    }
+    Console.WriteLine("Try: repair <name>");
+}
+
+// Placeholder wear-and-tear flavor text/thresholds — easy to swap for something else later.
+static string DescribeItemCondition(IDurableItem item)
+{
+    double fraction = (double)item.Durability / item.MaxDurability;
+    return fraction switch
+    {
+        >= 1.0 => "pristine condition",
+        >= 0.8 => "lightly worn",
+        >= 0.6 => "worn",
+        >= 0.4 => "battered",
+        >= 0.2 => "badly damaged",
+        _ => "poor condition, barely holding together"
+    };
+}
+
+// Fully mending it (all the way from 0 durability) costs RepairCostFraction of its Value; less if
+// it's only partway worn, scaled by how much durability is actually missing.
+static int RepairCost(IDurableItem item)
+{
+    int missing = item.MaxDurability - item.Durability;
+    double missingFraction = (double)missing / item.MaxDurability;
+    return Math.Max(1, (int)Math.Round(item.Value * CombatConstants.RepairCostFraction * missingFraction));
+}
+
+IDurableItem? FindOwnDurable(string name)
+{
+    if (!player!.Weapon.IsUnarmed && player.Weapon.Name.Contains(name, StringComparison.OrdinalIgnoreCase))
+        return player.Weapon;
+
+    var weapon = player.SheathedWeapons.FirstOrDefault(w => w.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+    if (weapon != null)
+        return weapon;
+
+    var equipped = player.EquippedArmor.FirstOrDefault(a => a.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+    if (equipped != null)
+        return equipped;
+
+    return player.HeldArmor.FirstOrDefault(a => a.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+}
+
+IEnumerable<IDurableItem> GetAllOwnDurables()
+{
+    if (!player!.Weapon.IsUnarmed)
+        yield return player.Weapon;
+    foreach (var w in player.SheathedWeapons)
+        yield return w;
+    foreach (var a in player.EquippedArmor)
+        yield return a;
+    foreach (var a in player.HeldArmor)
+        yield return a;
+}
+
+// A repaired item's own name always shows the fact — per rule 8quinquies, this is the one thing about
+// an item's condition that's visible just by looking at it; everything else needs `condition`.
+static string DisplayName(IDurableItem item) => item.HasBeenRepaired ? $"{item.Name} (repaired)" : item.Name;
+
 static bool TryParseStat(string text, out StatType stat, out string displayName)
 {
     switch (text.ToLowerInvariant())
@@ -1214,21 +1390,21 @@ void HandleInventory()
     if (!RequirePlayer())
         return;
 
-    Console.WriteLine(player!.Weapon.IsUnarmed ? "Hands: empty." : $"Hands: {player.Weapon.Name}.");
+    Console.WriteLine(player!.Weapon.IsUnarmed ? "Hands: empty." : $"Hands: {DisplayName(player.Weapon)}.");
 
     if (player.SheathedWeapons.Count > 0)
-        Console.WriteLine("Sheathed: " + string.Join(", ", player.SheathedWeapons.Select(w => w.Name)));
+        Console.WriteLine("Sheathed: " + string.Join(", ", player.SheathedWeapons.Select(DisplayName)));
 
     if (player.EquippedArmor.Count > 0)
     {
         Console.WriteLine("Wearing:");
         foreach (var armor in player.EquippedArmor)
-            Console.WriteLine($"  {armor.Name} ({string.Join('/', armor.Slots)})");
+            Console.WriteLine($"  {DisplayName(armor)} ({string.Join('/', armor.Slots)})");
     }
 
     if (player.HeldArmor.Count > 0 || player.HeldItems.Count > 0)
     {
-        var heldNames = player.HeldArmor.Select(a => a.Name).Concat(player.HeldItems.Select(i => i.Name));
+        var heldNames = player.HeldArmor.Select(DisplayName).Concat(player.HeldItems.Select(i => i.Name));
         Console.WriteLine("In hand (not worn/stowed): " + string.Join(", ", heldNames));
     }
 

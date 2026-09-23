@@ -45,6 +45,14 @@ public class Trainer
     public string ProfessionId { get; init; } = "civilian";
 }
 
+/// A room with a blacksmith: mends a weapon or armor piece's durability back to full for gold, priced
+/// by how much is missing (see CombatConstants.RepairCostFraction). Each item can only ever be mended
+/// once in its life (Weapon/Armor.HasBeenRepaired) — the blacksmith refuses a second time.
+public class Blacksmith
+{
+    public required string Name { get; init; }
+}
+
 public class Room
 {
     /// Global id: "<areaId>.<roomId>", e.g. "world.millford_gate". Exits reference other rooms by this id.
@@ -73,6 +81,9 @@ public class Room
 
     /// Set if this room has a trainer; null otherwise.
     public Trainer? Trainer { get; init; }
+
+    /// Set if this room has a blacksmith; null otherwise.
+    public Blacksmith? Blacksmith { get; init; }
 }
 
 public class Area

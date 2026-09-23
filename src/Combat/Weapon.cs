@@ -1,6 +1,6 @@
 namespace Combat;
 
-public class Weapon
+public class Weapon : IDurableItem
 {
     public required string Name { get; init; }
 

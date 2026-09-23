@@ -14,7 +14,7 @@
       "details": {
         "arch": "The arch is built of dark, weather-stained beams, carved long ago with vines and small birds. Someone has tied a faded ribbon to its highest post.",
         "sign": "A crooked wooden sign reads: 'MILLFORD. Travelers welcome. The village map is posted below.'",
-        "map": "        M I L L F O R D\n\n                 [ Gate ]      <-- you are here\n                    |\n[ Shop ]-------[ Square ]-------[ Meadow ]---[ Thicket ]\n                    |\n                 [ Alley ]\n\n      (up: Healer's House)   (down: Training Yard)\n"
+        "map": "        M I L L F O R D\n\n                 [ Gate ]      <-- you are here\n                    |\n[ Forge ]-[ Shop ]-[ Square ]-------[ Meadow ]---[ Thicket ]\n                    |\n                 [ Alley ]\n\n      (up: Healer's House)   (down: Training Yard)\n"
       }
     }
   ]

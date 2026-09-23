@@ -1,6 +1,6 @@
 namespace Combat;
 
-public class Armor
+public class Armor : IDurableItem
 {
     public required string Name { get; init; }
 

@@ -25,7 +25,8 @@
       "name": "Millford Trading Post",
       "description": "A cramped shop crowded with secondhand gear. Weapons hang from pegs along one wall; a rack of well-worn armor lines the other. A tired-looking shopkeeper watches you from behind the counter.",
       "exits": {
-        "east": "square"
+        "east": "square",
+        "west": "forge"
       },
       "shop": {
         "name": "Millford Trading Post",
@@ -43,6 +44,17 @@
           { "name": "Wooden Shield", "absorb": 3, "deflect": 4, "slots": ["Shield"], "bulk": 1, "value": 6 }
         ],
         "backpack": { "name": "Traveler's Pack", "capacity": 2, "value": 10 }
+      }
+    },
+    {
+      "id": "forge",
+      "name": "Millford Forge",
+      "description": "A soot-blackened forge, heat radiating from the coals even with no one working. Tools hang neatly on the wall, and the ring of a hammer on metal echoes from somewhere in back. A blacksmith wipes their hands and looks up.",
+      "exits": {
+        "east": "shop"
+      },
+      "blacksmith": {
+        "name": "Millford Forge"
       }
     },
     {

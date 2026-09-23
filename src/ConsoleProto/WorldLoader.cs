@@ -46,7 +46,8 @@ internal static class WorldLoader
             IsStart = r.Start,
             Shop = r.Shop,
             Healer = r.Healer,
-            Trainer = r.Trainer
+            Trainer = r.Trainer,
+            Blacksmith = r.Blacksmith
         }).ToList()
     };
 
@@ -76,5 +77,6 @@ internal static class WorldLoader
         bool Start,
         Shop? Shop,
         Healer? Healer,
-        Trainer? Trainer);
+        Trainer? Trainer,
+        Blacksmith? Blacksmith);
 }

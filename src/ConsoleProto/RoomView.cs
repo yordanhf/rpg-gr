@@ -32,6 +32,9 @@ internal static class RoomView
         if (room.Trainer != null)
             Console.WriteLine("You can train here, and advance a level once you qualify. Try: train, levelup");
 
+        if (room.Blacksmith != null)
+            Console.WriteLine("You can get gear repaired here. Try: repair");
+
         foreach (var npc in world.NpcsIn(room))
         {
             Console.WriteLine(npc.IsBleeding
