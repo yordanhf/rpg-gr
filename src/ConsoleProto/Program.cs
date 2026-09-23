@@ -57,15 +57,18 @@ while (true)
             break;
 
         case "kill":
+        case "k":
             HandleKill(parts);
             break;
 
         case "bandage":
+        case "bd":
             HandleBandage(parts);
             break;
 
         case "flee":
         case "stop":
+        case "f":
             HandleFlee();
             break;
 
@@ -82,35 +85,43 @@ while (true)
             break;
 
         case "gold":
+        case "g":
             HandleGold();
             break;
 
         case "xp":
         case "experience":
+        case "x":
             HandleExperience();
             break;
 
         case "heal":
+        case "h":
             HandleHeal();
             break;
 
         case "score":
+        case "sc":
             HandleScore();
             break;
 
         case "train":
+        case "tr":
             HandleTrain(parts);
             break;
 
         case "levelup":
+        case "lu":
             HandleLevelUp();
             break;
 
         case "repair":
+        case "rep":
             HandleRepair(parts);
             break;
 
         case "condition":
+        case "c":
             HandleCondition(parts);
             break;
 
@@ -119,40 +130,49 @@ while (true)
             break;
 
         case "wield":
+        case "wi":
             HandleWield(parts);
             break;
 
         case "sheath":
+        case "sh":
             HandleSheath(parts);
             break;
 
         case "wear":
+        case "wr":
             HandleWear(parts);
             break;
 
         case "remove":
+        case "rm":
             HandleRemoveArmor(parts);
             break;
 
         case "hands":
+        case "ha":
             HandleHands();
             break;
 
         case "take":
         case "get":
         case "loot":
+        case "t":
             HandleTake(parts);
             break;
 
         case "list":
+        case "ls":
             HandleListShop();
             break;
 
         case "buy":
+        case "b":
             HandleBuy(parts);
             break;
 
         case "sell":
+        case "se":
             HandleSell(parts);
             break;
 
@@ -167,6 +187,7 @@ while (true)
 
         case "quit":
         case "exit":
+        case "q":
             SaveCharacter();
             return;
 
@@ -911,8 +932,10 @@ void HandleDrop(string[] parts)
         return;
     }
 
-    Console.Write($"Really destroy {found.Value.Name} for good? This can't be undone. Type yes to confirm: ");
-    if (!string.Equals(Console.ReadLine()?.Trim(), "yes", StringComparison.OrdinalIgnoreCase))
+    Console.Write($"Really destroy {found.Value.Name} for good? This can't be undone. Type y to confirm: ");
+    var confirmation = Console.ReadLine()?.Trim();
+    if (!string.Equals(confirmation, "y", StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(confirmation, "yes", StringComparison.OrdinalIgnoreCase))
     {
         Console.WriteLine("You think better of it.");
         return;
