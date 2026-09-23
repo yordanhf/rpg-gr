@@ -29,7 +29,14 @@ public class Weapon : IDurableItem
     public int Value { get; init; }
 
     public int MaxDurability { get; init; } = CombatConstants.MaxDurability;
-    public int Durability { get; private set; } = CombatConstants.MaxDurability;
+
+    private int? _durability;
+
+    /// Lazily falls back to MaxDurability until first degraded. Can't be a plain field initializer
+    /// (`= MaxDurability`) because object-initializer/JSON-set values are applied *after* field
+    /// initializers run at construction — a naive default would freeze at the pre-init MaxDurability
+    /// (1000) even when this instance is later given a different one (e.g. CloneWeapon in Program.cs).
+    public int Durability => _durability ?? MaxDurability;
 
     /// A weapon can only ever be mended once — the blacksmith won't touch it again after that.
     public bool HasBeenRepaired { get; private set; }
@@ -45,13 +52,13 @@ public class Weapon : IDurableItem
     public void Degrade()
     {
         if (Durability > 0)
-            Durability--;
+            _durability = Durability - 1;
     }
 
     /// Sets durability/repair state read back from a save file.
     public void RestoreDurability(int durability, bool hasBeenRepaired)
     {
-        Durability = Math.Clamp(durability, 0, MaxDurability);
+        _durability = Math.Clamp(durability, 0, MaxDurability);
         HasBeenRepaired = hasBeenRepaired;
     }
 
@@ -61,7 +68,7 @@ public class Weapon : IDurableItem
         if (HasBeenRepaired)
             return false;
 
-        Durability = MaxDurability;
+        _durability = MaxDurability;
         HasBeenRepaired = true;
         return true;
     }

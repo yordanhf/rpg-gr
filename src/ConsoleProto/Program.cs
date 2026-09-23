@@ -1171,18 +1171,20 @@ void ShowBlacksmithMenu(Blacksmith blacksmith)
     Console.WriteLine("Try: repair <name>");
 }
 
-// Placeholder wear-and-tear flavor text/thresholds — easy to swap for something else later.
+// Placeholder wear-and-tear flavor text/thresholds — easy to swap for something else later. Every
+// tier reads naturally after "X is in ___" (HandleCondition) and before ", repair costs..." (the
+// blacksmith menu), so keep new tiers ending in "condition".
 static string DescribeItemCondition(IDurableItem item)
 {
     double fraction = (double)item.Durability / item.MaxDurability;
     return fraction switch
     {
         >= 1.0 => "pristine condition",
-        >= 0.8 => "lightly worn",
-        >= 0.6 => "worn",
-        >= 0.4 => "battered",
-        >= 0.2 => "badly damaged",
-        _ => "poor condition, barely holding together"
+        >= 0.8 => "good condition",
+        >= 0.6 => "fair condition",
+        >= 0.4 => "worn condition",
+        >= 0.2 => "poor condition",
+        _ => "terrible condition"
     };
 }
 
