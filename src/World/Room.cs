@@ -53,6 +53,13 @@ public class Blacksmith
     public required string Name { get; init; }
 }
 
+/// A room with somewhere to permanently discard an unwanted item (`drop <item> into trash`). No
+/// capacity, no getting it back — Program.cs asks for confirmation before actually destroying anything.
+public class TrashCan
+{
+    public required string Name { get; init; }
+}
+
 public class Room
 {
     /// Global id: "<areaId>.<roomId>", e.g. "world.millford_gate". Exits reference other rooms by this id.
@@ -84,6 +91,9 @@ public class Room
 
     /// Set if this room has a blacksmith; null otherwise.
     public Blacksmith? Blacksmith { get; init; }
+
+    /// Set if this room has a trash can; null otherwise.
+    public TrashCan? Trash { get; init; }
 }
 
 public class Area

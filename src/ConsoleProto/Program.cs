@@ -9,7 +9,7 @@ const string HelpLine =
     "Commands: create, continue, look [target], north/south/east/west/up/down (n/s/e/w/u/d), kill <target>, shape [target], " +
     "bandage [target], wield <weapon|shield>, sheath [weapon], wear <armor>, remove <armor>, hands, i (or inventory), gold, xp, " +
     "score, take/get/loot <item>, list, buy <item>, sell <item>, heal, train [stat] [amount], levelup, repair [item], condition <item>, " +
-    "simulate [rounds] [npc], reset, flee (or stop), listk, quit";
+    "drop <item> into trash, simulate [rounds] [npc], reset, flee (or stop), listk, quit";
 
 var rng = new SystemRandomSource();
 var world = new WorldState(WorldLoader.Load(), CharacterLoader.LoadNpc);
@@ -112,6 +112,10 @@ while (true)
 
         case "condition":
             HandleCondition(parts);
+            break;
+
+        case "drop":
+            HandleDrop(parts);
             break;
 
         case "wield":
@@ -873,6 +877,72 @@ void HandleSell(string[] parts)
         player.AddGold(price);
         Console.WriteLine($"You sell {itemName} for {price} gold.");
     }
+}
+
+// "drop <item> into trash" permanently destroys something — no gold, no getting it back — so it asks
+// for a plain yes/no first (same direct Console.ReadLine as the name prompt in create/continue, not
+// LineEditor: this is a one-off confirmation, not a full command line).
+void HandleDrop(string[] parts)
+{
+    if (!RequirePlayer())
+        return;
+
+    var trash = playerRoom?.Trash;
+    if (trash == null)
+    {
+        Console.WriteLine("There's nowhere to throw that away here.");
+        return;
+    }
+
+    if (parts.Length < 4 || !parts[^2].Equals("into", StringComparison.OrdinalIgnoreCase)
+        || !parts[^1].Equals("trash", StringComparison.OrdinalIgnoreCase))
+    {
+        Console.WriteLine("Usage: drop <item> into trash");
+        return;
+    }
+
+    var name = string.Join(' ', parts.Skip(1).Take(parts.Length - 3));
+    var found = FindRemovable(name);
+    if (found == null)
+    {
+        bool stillWorn = player!.EquippedArmor.Any(a => a.Name.Contains(name, StringComparison.OrdinalIgnoreCase))
+            || (!player.Weapon.IsUnarmed && player.Weapon.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+        Console.WriteLine(stillWorn ? "You'll need to remove or sheath that first." : "You don't have that.");
+        return;
+    }
+
+    Console.Write($"Really destroy {found.Value.Name} for good? This can't be undone. Type yes to confirm: ");
+    if (!string.Equals(Console.ReadLine()?.Trim(), "yes", StringComparison.OrdinalIgnoreCase))
+    {
+        Console.WriteLine("You think better of it.");
+        return;
+    }
+
+    found.Value.Remove();
+    Console.WriteLine($"You toss {found.Value.Name} into the {trash.Name} — gone for good.");
+}
+
+// Same four spots HandleSell looks in: sheathed weapons, held-but-unworn armor, backpack contents,
+// and loose held items — everything the player could plausibly hand over without unequipping first.
+(string Name, Action Remove)? FindRemovable(string name)
+{
+    var weapon = player!.SheathedWeapons.FirstOrDefault(w => w.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+    if (weapon != null)
+        return (weapon.Name, () => player.SheathedWeapons.Remove(weapon));
+
+    var armor = player.HeldArmor.FirstOrDefault(a => a.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+    if (armor != null)
+        return (armor.Name, () => player.HeldArmor.Remove(armor));
+
+    var backpackItem = player.BackpackItems.FirstOrDefault(i => i.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+    if (backpackItem != null)
+        return (backpackItem.Name, () => player.BackpackItems.Remove(backpackItem));
+
+    var held = player.HeldItems.FirstOrDefault(i => i.Name.Contains(name, StringComparison.OrdinalIgnoreCase));
+    if (held != null)
+        return (held.Name, () => player.HeldItems.Remove(held));
+
+    return null;
 }
 
 static Weapon CloneWeapon(Weapon w) => new()

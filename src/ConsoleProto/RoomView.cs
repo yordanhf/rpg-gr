@@ -35,6 +35,9 @@ internal static class RoomView
         if (room.Blacksmith != null)
             Console.WriteLine("You can get gear repaired here. Try: repair");
 
+        if (room.Trash != null)
+            Console.WriteLine($"There's a {room.Trash.Name} here. Try: drop <item> into trash");
+
         foreach (var npc in world.NpcsIn(room))
         {
             Console.WriteLine(npc.IsBleeding

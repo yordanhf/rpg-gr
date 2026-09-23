@@ -47,7 +47,8 @@ internal static class WorldLoader
             Shop = r.Shop,
             Healer = r.Healer,
             Trainer = r.Trainer,
-            Blacksmith = r.Blacksmith
+            Blacksmith = r.Blacksmith,
+            Trash = r.Trash
         }).ToList()
     };
 
@@ -78,5 +79,6 @@ internal static class WorldLoader
         Shop? Shop,
         Healer? Healer,
         Trainer? Trainer,
-        Blacksmith? Blacksmith);
+        Blacksmith? Blacksmith,
+        TrashCan? Trash);
 }

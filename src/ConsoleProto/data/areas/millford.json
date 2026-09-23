@@ -44,6 +44,9 @@
           { "name": "Wooden Shield", "absorb": 3, "deflect": 4, "slots": ["Shield"], "bulk": 1, "value": 6, "maxDurability": 300 }
         ],
         "backpack": { "name": "Traveler's Pack", "capacity": 2, "value": 10 }
+      },
+      "trash": {
+        "name": "scrap bin"
       }
     },
     {
@@ -55,6 +58,9 @@
       },
       "blacksmith": {
         "name": "Millford Forge"
+      },
+      "trash": {
+        "name": "slag heap"
       }
     },
     {
