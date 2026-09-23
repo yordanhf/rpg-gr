@@ -133,6 +133,11 @@ public class Combatant
     /// Sets the gold balance read back from a save file.
     public void RestoreGold(int amount) => Gold = Math.Max(0, amount);
 
+    /// Player-defined command shortcuts (`alias <name> <command>`), console-side convenience — never
+    /// looked at by anything in Combat. Irrelevant for NPCs. Case-insensitive so "EE" and "ee" are the
+    /// same alias.
+    public Dictionary<string, string> Aliases { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+
     /// Irrelevant for NPCs — only the player accumulates this.
     public int Experience { get; private set; }
 

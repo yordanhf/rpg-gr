@@ -9,7 +9,45 @@ const string HelpLine =
     "Commands: create, continue, look [target], north/south/east/west/up/down (n/s/e/w/u/d), kill <target>, shape [target], " +
     "bandage [target], wield <weapon|shield>, sheath [weapon], wear <armor>, remove <armor>, hands, i (or inventory), gold, xp, " +
     "score, take/get/loot <item>, list, buy <item>, sell <item>, heal, train [stat] [amount], levelup, repair [item], condition <item>, " +
-    "drop <item> into trash, simulate [rounds] [npc], reset, flee (or stop), listk, quit";
+    "drop <item> into trash, alias [name] [command], unalias <name>, simulate [rounds] [npc], reset, flee (or stop), listk, quit";
+
+// Every built-in command keyword, its short aliases, and movement words — a player alias (see
+// HandleAlias) can never shadow one of these. Keep this in sync with the switch below and with
+// Direction's own north/south/east/west/up/down + n/s/e/w/u/d.
+var reservedCommandWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+{
+    "create", "continue",
+    "look", "l",
+    "kill", "k",
+    "bandage", "bd",
+    "flee", "stop", "f",
+    "reset",
+    "listk",
+    "shape",
+    "gold", "g",
+    "xp", "experience", "x",
+    "heal", "h",
+    "score", "sc",
+    "train", "tr",
+    "levelup", "lu",
+    "repair", "rep",
+    "condition", "c",
+    "drop",
+    "wield", "wi",
+    "sheath", "sh",
+    "wear", "wr",
+    "remove", "rm",
+    "hands", "ha",
+    "take", "get", "loot", "t",
+    "list", "ls",
+    "buy", "b",
+    "sell", "se",
+    "i", "inventory",
+    "simulate",
+    "quit", "exit", "q",
+    "alias", "unalias",
+    "north", "south", "east", "west", "up", "down", "n", "s", "e", "w", "u", "d"
+};
 
 var rng = new SystemRandomSource();
 var world = new WorldState(WorldLoader.Load(), CharacterLoader.LoadNpc);
@@ -40,6 +78,18 @@ while (true)
     var parts = input.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
     if (parts.Length == 0)
         continue;
+
+    // A player alias expands once (no recursive alias-of-alias) before the switch below even sees
+    // it: whatever comes after the alias name on the command line rides along as trailing arguments,
+    // so `alias ka kill` lets `ka rat` run as `kill rat`.
+    if (player != null && player.Aliases.TryGetValue(parts[0], out var aliasExpansion))
+    {
+        var trailingArgs = string.Join(' ', parts.Skip(1));
+        var expandedLine = trailingArgs.Length > 0 ? $"{aliasExpansion} {trailingArgs}" : aliasExpansion;
+        parts = expandedLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+            continue;
+    }
 
     switch (parts[0].ToLowerInvariant())
     {
@@ -183,6 +233,14 @@ while (true)
 
         case "simulate":
             HandleSimulate(parts);
+            break;
+
+        case "alias":
+            HandleAlias(parts);
+            break;
+
+        case "unalias":
+            HandleUnalias(parts);
             break;
 
         case "quit":
@@ -966,6 +1024,66 @@ void HandleDrop(string[] parts)
         return (held.Name, () => player.HeldItems.Remove(held));
 
     return null;
+}
+
+// `alias` alone lists every alias; `alias <name>` shows just that one; `alias <name> <command...>`
+// defines or overwrites it. Names can't shadow a built-in command/short-alias/direction word
+// (reservedCommandWords) — everything else is fair game, including overwriting your own alias.
+void HandleAlias(string[] parts)
+{
+    if (!RequirePlayer())
+        return;
+
+    if (parts.Length == 1)
+    {
+        if (player!.Aliases.Count == 0)
+        {
+            Console.WriteLine("You have no aliases. Try: alias <name> <command>");
+            return;
+        }
+
+        Console.WriteLine("Your aliases:");
+        foreach (var (name, expansion) in player.Aliases.OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase))
+            Console.WriteLine($"  {name} -> {expansion}");
+        return;
+    }
+
+    var aliasName = parts[1];
+
+    if (parts.Length == 2)
+    {
+        Console.WriteLine(player!.Aliases.TryGetValue(aliasName, out var current)
+            ? $"{aliasName} -> {current}"
+            : $"You have no alias called '{aliasName}'.");
+        return;
+    }
+
+    if (reservedCommandWords.Contains(aliasName))
+    {
+        Console.WriteLine($"'{aliasName}' is already a built-in command — pick a different name.");
+        return;
+    }
+
+    var expansionText = string.Join(' ', parts.Skip(2));
+    player!.Aliases[aliasName] = expansionText;
+    Console.WriteLine($"Alias set: {aliasName} -> {expansionText}");
+}
+
+void HandleUnalias(string[] parts)
+{
+    if (!RequirePlayer())
+        return;
+
+    if (parts.Length < 2)
+    {
+        Console.WriteLine("Usage: unalias <name>");
+        return;
+    }
+
+    var aliasName = parts[1];
+    Console.WriteLine(player!.Aliases.Remove(aliasName)
+        ? $"Alias '{aliasName}' removed."
+        : $"You have no alias called '{aliasName}'.");
 }
 
 static Weapon CloneWeapon(Weapon w) => new()

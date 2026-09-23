@@ -44,6 +44,11 @@ public class CharacterSave
     public int Gold { get; init; }
     public int Experience { get; init; }
 
+    /// Player-defined command shortcuts (`alias`). Added after some characters already existed;
+    /// defaults to empty so an old save without this key still loads instead of crashing `continue`
+    /// (same lesson as ProfessionId below).
+    public Dictionary<string, string> Aliases { get; init; } = new();
+
     /// A character that is down (bleeding or dead) is saved as if bandaged: alive, at a fraction of max HP,
     /// because nobody would be around to help them while the game is closed.
     public static CharacterSave From(Combatant player, string roomId)
@@ -73,7 +78,8 @@ public class CharacterSave
             Defense = player.Defense,
             Dodge = player.Dodge,
             Gold = player.Gold,
-            Experience = player.Experience
+            Experience = player.Experience,
+            Aliases = new Dictionary<string, string>(player.Aliases)
         };
     }
 
@@ -98,7 +104,8 @@ public class CharacterSave
             Attack = Attack,
             Defense = Defense,
             Dodge = Dodge,
-            Weapon = startingWeapon
+            Weapon = startingWeapon,
+            Aliases = new Dictionary<string, string>(Aliases, StringComparer.OrdinalIgnoreCase)
         };
 
         player.ResetHp();
